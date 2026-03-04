@@ -1,0 +1,56 @@
+
+security:
+    encoders:
+        App\Entity\Admin\User:
+            algorithm: bcrypt
+    providers:
+        userDB:
+            id: App\Security\UserDBProvider
+    firewalls:
+        main:
+            access_denied_handler: App\Security\Handler\AccessDeniedHandler
+            pattern: ^/private
+            guard:
+                authenticators:
+                    - App\Security\JwtTokenAuthenticator
+
+        api_login:
+            pattern:  ^/api/login
+            stateless: true
+            anonymous: true
+
+        api_logout:
+            pattern:  ^/api/logout
+            stateless: true
+            anonymous: true
+
+        api_forgot:
+            pattern:  ^/api/forgot
+            stateless: true
+            anonymous: true
+
+        refresh_token:
+            pattern:  ^/api/token/refresh
+            stateless: true
+            anonymous: true
+
+        api:
+            pattern:   ^/api(?!/doc)
+            stateless: true
+            guard:
+                authenticators:
+                    - lexik_jwt_authentication.jwt_token_authenticator
+
+    access_control:
+        - { path: ^/api/doc, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/printer, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/private, allow_if: "user.getRoles() and user.getRoles()[0] in ['ROLE_USER_ADMIN', 'ROLE_USER_SHOP', 'ROLE_USER_SHIPPING', 'ROLE_USER_COMMPAGNY', 'ROLE_USER_CUSTOMER']
+          and user.isAuthorized(request.getPathInfo())"}
+        - { path: ^/private/compagny, allow_if: "user.getRoles()[0] == 'ROLE_USER_COMMPAGNY'" }
+        - { path: ^/private/shop, allow_if: "user.getRoles()[0] == 'ROLE_USER_SHOP'" }
+        - { path: ^/private/shipping, allow_if: "user.getRoles()[0] == 'ROLE_USER_SHIPPING'" }
+        - { path: ^/private/customer, allow_if: "user.getRoles()[0] == 'ROLE_USER_CUSTOMER'" }
+        - { path: ^/private/admin, allow_if: "user.getRoles()[0] == 'ROLE_USER_ADMIN'" }
+        - { path: '^/', roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        # - { path: '^/', roles: IS_AUTHENTICATED_ANONYMOUSLY, requires_channel: '%env(SECURE_SCHEME)%' }
+
