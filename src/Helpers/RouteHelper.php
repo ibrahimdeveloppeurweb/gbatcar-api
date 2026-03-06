@@ -2,238 +2,236 @@
 
 namespace App\Helpers;
 
+/**
+ * RouteHelper - Aide à la gestion des permissions de routes GbatCar.
+ *
+ * Ce helper regroupe les routes API par domaine fonctionnel.
+ * Il est utilisé dans UserFixture et RoleManager pour attribuer
+ * les bons droits d'accès aux rôles de la plateforme.
+ *
+ * Architecture des routes GbatCar :
+ * - /api/private/admin/...     → Routes d'administration (gestion des utilisateurs, rôles, etc.)
+ * - /api/private/vehicule/...  → Gestion de la flotte de véhicules
+ * - /api/private/contrat/...   → Gestion des contrats de location
+ * - /api/private/client/...    → Gestion des clients (locataires)
+ * - /api/private/paiement/...  → Gestion des paiements
+ * - /api/private/maintenance/... → Suivi de la maintenance
+ * - /api/private/incident/...  → Gestion des incidents
+ * - /api/private/extra/...     → Paramètres et fonctionnalités transversales
+ */
 class RouteHelper
 {
-    public static function ADMIN_ROUTE($paths)
-    {   
-        $datas = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#^/api/private/admin#', $path->getChemin()) or
-                preg_match('#^/printer/admin#', $path->getChemin())
-            ) {
-                $datas[] = $path;
-            }
-        }
-        return $datas;
-    }
+    // =========================================================================
+    // MÉTHODES UTILITAIRES INTERNES
+    // =========================================================================
 
-    public static function CONSTRUCTION_ROUTE($paths)
+    /**
+     * Filtre les routes en excluant celles correspondant aux actions sensibles.
+     * Actions exclues : delete, validate, activate
+     */
+    private static function excludeSensitiveActions(array $paths): array
     {
-        $datas = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#^/api/private/agency/construction#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/funding#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/funding/payment#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/production#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/quote#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/house#', $path->getChemin())
-            ) {
-                $datas[] = $path;
-            }
-        }
-        return $paths;
+        return array_values(array_filter($paths, function ($path) {
+            return !preg_match('#delete|validate|activate#', $path->getNom());
+        }));
     }
 
-    // La fonction avec RESTRICTED permet de limiter les action: Empêcher la suppression (delete)....
-    public static function CONSTRUCTION_RESTRICTED_ROUTE($paths)
-    {   
-        $datas = RouteHelper::CONSTRUCTION_ROUTE($paths);
-        foreach ($paths as $path){
-            if(
-                preg_match('#delete#', $path->getNom()) or 
-                preg_match('#validate#', $path->getNom()) or 
-                preg_match('#activate#', $path->getNom())
-            ) {
-                unset($datas[$path]);
-            }
-        }
-        return $datas;
-    }
-
-    public static function CUSTOMER_ROUTE($paths)
+    /**
+     * Filtre une liste de routes à partir d'un tableau de patterns regex.
+     */
+    private static function filterByPatterns(array $paths, array $patterns): array
     {
-        $datas = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#^/api/private/agency/customer#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/folder/customer#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/folder/terminate#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/mutate#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/payment/customer#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/user#', $path->getChemin())
-            ) {
-                $datas[] = $path;
+        $result = [];
+        foreach ($paths as $path) {
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $path->getChemin())) {
+                    $result[] = $path;
+                    break;
+                }
             }
         }
-        return $datas;
+        return $result;
     }
 
-    public static function CUSTOMER_RESTRICTED_ROUTE($paths)
-    {   
-        $datas = RouteHelper::CUSTOMER_ROUTE($paths);
-        $row  = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#delete#', $path->getNom()) or 
-                preg_match('#validate#', $path->getNom()) or 
-                preg_match('#activate#', $path->getNom())
-            ) {}else{
-                $row[] = $path;
-            }
-        }
-        return $datas;
-    }
+    // =========================================================================
+    // SUPER ADMIN — Accès complet à toutes les routes privées
+    // =========================================================================
 
-    public static function TENANT_ROUTE($paths)
-    {   
-        $datas = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#^/api/private/agency/tenant#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/owner#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/contract#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/invoice#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/inventory#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/notice#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/payment#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/penality#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/renew/contract#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/rent#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/house#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/rental#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/terminate#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/mandate#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/renew/mandate#', $path->getChemin())
-            ) {
-                $datas[] = $path;
-            }
-        }
-        return $datas;
-    }
-
-    public static function TENANT_RESTRICTED_ROUTE($paths)
-    {   
-        $datas = RouteHelper::TENANT_ROUTE($paths);
-        $row  = [];
-        foreach ($datas as $path){
-            if(
-                preg_match('#delete#', $path->getNom()) or 
-                preg_match('#validate#', $path->getNom()) or 
-                preg_match('#activate#', $path->getNom())
-            ) {}else{
-                $row[] = $path;
-            }
-        }
-        return $row;
-    }
-
-    public static function PATRIMOINE_ROUTE($paths)
-    {   
-        $datas = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#^/api/private/agency/home#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/home/type#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/promotion#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/mutate#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/payment/customer#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/subdivision#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/islet#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/lot#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/folder#', $path->getChemin())
-            ) {
-                $datas[] = $path;
-            }
-        }
-        return $datas;
-    }
-
-    public static function PATRIMOINE_RESTRICTED_ROUTE($paths)
+    /**
+     * Toutes les routes privées de l'administration.
+     * Réservé au Super Administrateur GbatCar.
+     */
+    public static function ADMIN_ROUTE(array $paths): array
     {
-        $datas = RouteHelper::PATRIMOINE_ROUTE($paths);
-        $row  = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#delete#', $path->getNom()) or 
-                preg_match('#validate#', $path->getNom()) or 
-                preg_match('#activate#', $path->getNom())
-            ) {}else{
-                $row[] = $path;
-            } 
-        }
-        return $datas;
+        return self::filterByPatterns($paths, [
+            '#^/api/private/admin#',
+            '#^/api/private/vehicule#',
+            '#^/api/private/contrat#',
+            '#^/api/private/client#',
+            '#^/api/private/paiement#',
+            '#^/api/private/maintenance#',
+            '#^/api/private/incident#',
+            '#^/api/private/extra#',
+            '#^/printer/admin#',
+        ]);
     }
 
-    public static function OWNER_ROUTE($paths)
-    {   
-        $datas = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#^/api/private/agency/tenant#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/owner#', $path->getChemin()) or  
-                preg_match('#^/api/private/agency/house#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/rental#', $path->getChemin()) or
-                preg_match('#^/api/private/agency/renew/mandate#', $path->getChemin()) or 
-                preg_match('#^api/private/agency/repayment#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/rent#', $path->getChemin())
-            ) {
-                $datas[] = $path;
-            }
-        }
-        return $datas;
+    // =========================================================================
+    // MANAGER — Accès opérationnel (sans gestion des utilisateurs/rôles)
+    // =========================================================================
+
+    /**
+     * Routes accessibles au Gestionnaire/Manager.
+     * Accès complet aux modules métier, sans gestion des droits d'accès.
+     */
+    public static function MANAGER_ROUTE(array $paths): array
+    {
+        return self::filterByPatterns($paths, [
+            '#^/api/private/vehicule#',
+            '#^/api/private/contrat#',
+            '#^/api/private/client#',
+            '#^/api/private/paiement#',
+            '#^/api/private/maintenance#',
+            '#^/api/private/incident#',
+            '#^/api/private/extra/shared#',
+        ]);
     }
 
-    public static function OWNER_RESTRICTED_ROUTE($paths)
-    {   
-        $datas = RouteHelper::OWNER_ROUTE($paths);
-        $row  = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#delete#', $path->getNom()) or 
-                preg_match('#validate#', $path->getNom()) or 
-                preg_match('#activate#', $path->getNom())
-            ) {}else{
-                $row[] = $path;
-            }
-        }
-        return $datas;
+    /**
+     * Routes Manager avec actions sensibles bloquées (delete, validate, activate).
+     * Pour un Manager en mode lecture/écriture sans suppression.
+     */
+    public static function MANAGER_RESTRICTED_ROUTE(array $paths): array
+    {
+        return self::excludeSensitiveActions(self::MANAGER_ROUTE($paths));
     }
 
-    public static function TREASURY_ROUTE($paths)
-    {   
-        $datas = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#^/api/private/agency/fund/request#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/treasury#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/day#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/spent#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/repayment/payment#', $path->getChemin()) or 
-                preg_match('#^/api/private/agency/supply#', $path->getChemin())
-            ) {
-                $datas[] = $path;
-            }
-        }
-        return $datas;
+    // =========================================================================
+    // VEHICULES — Gestion de la flotte
+    // =========================================================================
+
+    /**
+     * Routes liées à la gestion des véhicules.
+     */
+    public static function VEHICULE_ROUTE(array $paths): array
+    {
+        return self::filterByPatterns($paths, [
+            '#^/api/private/vehicule#',
+            '#^/api/private/maintenance#',
+            '#^/api/private/incident#',
+        ]);
     }
 
-    public static function TREASURY_RESTRICTED_ROUTE($paths)
-    {   
-        $datas = RouteHelper::TREASURY_ROUTE($paths);
-        $row  = [];
-        foreach ($paths as $path){
-            if(
-                preg_match('#delete#', $path->getNom()) or 
-                preg_match('#validate#', $path->getNom()) or 
-                preg_match('#activate#', $path->getNom()) or 
-                preg_match('#end#', $path->getNom()) or 
-                preg_match('#send#', $path->getNom())
-            ) {}else{
-                $row[] = $path;
-            }
-        }
-        return $datas;
+    /**
+     * Routes Véhicules sans actions sensibles.
+     */
+    public static function VEHICULE_RESTRICTED_ROUTE(array $paths): array
+    {
+        return self::excludeSensitiveActions(self::VEHICULE_ROUTE($paths));
+    }
+
+    // =========================================================================
+    // CONTRATS — Gestion des locations
+    // =========================================================================
+
+    /**
+     * Routes liées aux contrats de location.
+     */
+    public static function CONTRAT_ROUTE(array $paths): array
+    {
+        return self::filterByPatterns($paths, [
+            '#^/api/private/contrat#',
+            '#^/api/private/client#',
+            '#^/api/private/paiement#',
+        ]);
+    }
+
+    /**
+     * Routes Contrats sans actions sensibles.
+     */
+    public static function CONTRAT_RESTRICTED_ROUTE(array $paths): array
+    {
+        return self::excludeSensitiveActions(self::CONTRAT_ROUTE($paths));
+    }
+
+    // =========================================================================
+    // CLIENTS — Gestion des locataires
+    // =========================================================================
+
+    /**
+     * Routes liées à la gestion des clients/locataires.
+     */
+    public static function CLIENT_ROUTE(array $paths): array
+    {
+        return self::filterByPatterns($paths, [
+            '#^/api/private/client#',
+        ]);
+    }
+
+    /**
+     * Routes Clients sans actions sensibles.
+     */
+    public static function CLIENT_RESTRICTED_ROUTE(array $paths): array
+    {
+        return self::excludeSensitiveActions(self::CLIENT_ROUTE($paths));
+    }
+
+    // =========================================================================
+    // PAIEMENTS — Gestion financière
+    // =========================================================================
+
+    /**
+     * Routes liées aux paiements et à la trésorerie.
+     */
+    public static function PAIEMENT_ROUTE(array $paths): array
+    {
+        return self::filterByPatterns($paths, [
+            '#^/api/private/paiement#',
+        ]);
+    }
+
+    /**
+     * Routes Paiements sans actions sensibles.
+     */
+    public static function PAIEMENT_RESTRICTED_ROUTE(array $paths): array
+    {
+        return self::excludeSensitiveActions(self::PAIEMENT_ROUTE($paths));
+    }
+
+    // =========================================================================
+    // MAINTENANCE — Suivi technique
+    // =========================================================================
+
+    /**
+     * Routes liées à la maintenance et aux incidents.
+     */
+    public static function MAINTENANCE_ROUTE(array $paths): array
+    {
+        return self::filterByPatterns($paths, [
+            '#^/api/private/maintenance#',
+            '#^/api/private/incident#',
+        ]);
+    }
+
+    /**
+     * Routes Maintenance sans actions sensibles.
+     */
+    public static function MAINTENANCE_RESTRICTED_ROUTE(array $paths): array
+    {
+        return self::excludeSensitiveActions(self::MAINTENANCE_ROUTE($paths));
+    }
+
+    // =========================================================================
+    // EXTRA — Routes transversales (paramètres, recherche, notifications)
+    // =========================================================================
+
+    /**
+     * Routes transversales accessibles à tous les utilisateurs authentifiés.
+     */
+    public static function EXTRA_ROUTE(array $paths): array
+    {
+        return self::filterByPatterns($paths, [
+            '#^/api/private/extra#',
+        ]);
     }
 }

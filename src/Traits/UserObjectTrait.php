@@ -7,59 +7,31 @@ use Ramsey\Uuid\UuidInterface;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Symfony\Component\Serializer\Annotation\Groups;
 
-trait  UserObjectTrait
+trait UserObjectTrait
 {
     /**
      * @var UuidInterface
      * @ORM\Column(type="uuid", length=255, unique=true)
-     * @Groups({"syndic","city","rdv","activity","agency", "house", "terminate", "equipment", "contract", "inventory", "country", "admin", "user", "customer", "mutate","repayment",
-     *     "tenant", "owner", "invoice", "rental", "subdivision", "islet", "lot", "lot:c", "mandate", "service", "folderC", "penality", "product",
-     *     "rent", "contract", "provider", "construction","payment","renew","renewMandate","promotion","home","homeType","invoiceF","paymentC",
-     *     "treasury","notice","supply","day","fund","spent","quote","invoiceFu","production","paymentF","package","facture", "subscription", "funding",
-     *     "terminateF", "OptionF", "OptionR", "invoiceR", "paymentR", "bill", "path","ticket","chat","category", "signed-file", "terminateM", "transaction", 
-     *     "mailSms", "disburs", "worksite", "work-package" , "task", "building", "option-worksite", "task", "task-link", "recommandation", "short-contract", "extend-contract","prospect","agent","offre",
-     *     "tva", "account", "log", "logNature", "planModel", "accountingSetting", "defaultAccount", "trustee", "default", "house_co", "home_co", "optionS", "operation", "invoiceP", "funds-apeal", "houseco-lot", "homeco-lot","loadT",
-     *      "reservation", "folderR"})
+     * @Groups({"user", "admin"})
      */
     private $uuid;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"agency","rdv","activity", "house", "terminate", "equipment", "contract", "inventory", "country", "admin", "user", "customer", "mutate","repayment",
-     *     "tenant", "owner", "invoice", "rental", "subdivision", "islet", "lot", "mandate", "service", "folderC", "penality", "product",
-     *     "rent", "contract", "provider", "construction", "payment", "renew", "renewMandate","promotion","home","homeType","invoiceF","paymentC",
-     *     "treasury", "notice", "supply", "day", "fund", "spent", "quote", "invoiceFu", "production", "paymentF", "package", "facture", "subscription",
-     *     "funding","terminateF", "OptionF", "OptionR", "invoiceR", "paymentR", "bill", "path", "signed-file", "terminateM", "transaction", "mailSms", "disburs", 
-     *     "worksite", "work-package" , "task", "building", "option-worksite", "task", "task-link", "recommandation", "short-contract", "extend-contract","prospect","agent","offre",
-     *     "tva", "account", "log", "logNature", "planModel", "accountingSetting", "defaultAccount", "trustee", "default", "house_co", "home_co", "optionS", "operation", "invoiceP", "funds-apeal", "houseco-lot", "homeco-lot","loadT",
-     *      "reservation", "folderR"})
+     * @Groups({"user", "admin"})
      */
     private $code;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
-     * @Groups({"agency","rdv","activity", "house", "terminate", "equipment", "contract", "inventory", "country", "admin", "user", "customer", "mutate","repayment",
-     *     "tenant", "owner", "invoice", "rental", "subdivision", "islet", "lot", "mandate", "service", "folderC", "penality", "product",
-     *     "rent", "contract", "provider", "construction", "payment", "renew", "renewMandate", "promotion", "home","homeType", "invoiceF", "paymentC",
-     *     "treasury", "notice", "supply", "day", "fund", "spent", "quote", "invoiceFu", "production", "paymentF", "package", "facture", "subscription",
-     *     "funding","terminateF", "OptionF", "OptionR", "invoiceR", "paymentR", "bill", "path", "ticket", "category", "terminateM", "transaction", "mailSms", 
-     *     "disburs", "worksite", "work-package" , "task" , "building", "option-worksite", "task", "task-link", "recommandation", "short-contract", "extend-contract","prospect","agent","offre",
-     *     "tva", "account", "log", "logNature", "planModel", "accountingSetting", "defaultAccount", "trustee", "default", "house_co", "home_co", "optionS", "operation", "invoiceP", "funds-apeal", "houseco-lot", "homeco-lot","loadT",
-     *      "reservation", "folderR"})
+     * @Groups({"user", "admin"})
      * @Gedmo\Timestampable(on="create")
      */
     private $createdAt;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
-     * @Groups({"agency","rdv", "house", "terminate", "equipment", "contract", "inventory", "country", "admin", "user", "customer", "mutate","repayment",
-     *     "tenant", "owner", "invoice", "rental", "subdivision", "islet", "lot", "mandate", "service", "folderC", "penality", "product",
-     *     "rent", "contract", "provider", "construction", "payment", "renew", "renewMandate", "promotion", "home","homeType", "invoiceF", "paymentC",
-     *     "treasury", "notice", "supply", "day", "fund", "spent", "quote", "invoiceFu", "production", "paymentF", "package", "facture", "subscription",
-     *     "funding","terminateF", "OptionF", "OptionR", "invoiceR", "paymentR", "bill", "path", "terminateM", "transaction", "mailSms", "disburs", "worksite", 
-     *     "work-package" , "task", "building", "option-worksite", "task", "task-link", "recommandation", "short-contract", "extend-contract","prospect","agent","offre",
-     *     "tva", "account", "log", "logNature", "planModel", "accountingSetting", "defaultAccount", "trustee", "default", "house_co", "home_co", "optionS", "operation", "invoiceP", "funds-apeal", "houseco-lot", "homeco-lot","loadT",
-     *      "reservation", "folderR"})
+     * @Groups({"user", "admin"})
      * @Gedmo\Timestampable(on="update")
      */
     private $updatedAt;
@@ -87,7 +59,7 @@ trait  UserObjectTrait
     }
 
     public function getUuid()
-    {        
+    {
         return $this->uuid ? (is_string($this->uuid) ? $this->uuid : $this->uuid->toString()) : null;
     }
 
@@ -96,7 +68,7 @@ trait  UserObjectTrait
         return $this->code;
     }
 
-    public function setCode(?string $code):self
+    public function setCode(?string $code): self
     {
         $this->code = $code;
 
@@ -133,12 +105,7 @@ trait  UserObjectTrait
     }
 
     /**
-     * @Groups({"agency","rdv","activity", "house", "terminate", "equipment", "contract", "inventory", "country", "admin", "user", "customer", "mutate","repayment",
-     *     "tenant", "owner", "invoice", "rental", "subdivision", "islet", "lot", "mandate", "service", "folderC", "penality", "product",
-     *     "rent", "contract", "provider", "construction","payment","renewMandate","promotion","home","homeType", "invoiceF", "paymentC",
-     *     "treasury", "notice", "supply", "day", "fund", "spent", "quote", "invoiceFu", "production", "paymentF", "package", "facture", 
-     *     "subscription", "funding", "terminateF", "OptionF", "OptionR", "invoiceR", "paymentR", "bill", "path", "signed-file", "terminateM", 
-     *     "transaction", "mailSms", "disburs", "worksite", "building", "recommandation", "short-contract", "extend-contract","agent","offre", "comment", "reservation", "folderR"})
+     * @Groups({"user", "admin"})
      */
     public function getCreate(): ?string
     {
@@ -158,12 +125,7 @@ trait  UserObjectTrait
     }
 
     /**
-     * @Groups({"agency","rdv","activity", "house", "terminate", "equipment", "contract", "inventory", "country", "admin", "user", "customer", "mutate","repayment",
-     *     "tenant", "owner", "invoice", "rental", "subdivision", "islet", "lot", "mandate", "service", "folderC", "penality", "product",
-     *     "rent", "contract", "provider", "construction", "payment", "promotion", "home","homeType", "invoiceF", "paymentC", "treasury", "notice",
-     *     "supply", "day", "fund", "spent", "quote", "invoiceFu", "production", "paymentF", "package", "facture", "subscription", "funding",
-     *     "terminateF", "OptionF", "OptionR", "invoiceR", "paymentR", "bill", "path", "signed-file", "terminateM", "transaction", "mailSms", "disburs", "worksite", 
-     *     "building", "recommandation", "short-contract", "extend-contract","agent","offre", "comment", "reservation", "folderR"})
+     * @Groups({"user", "admin"})
      */
     public function getUpdate(): ?string
     {

@@ -17,12 +17,13 @@ use Symfony\Component\Serializer\Annotation\Groups;
 class Path
 {
     use UserObjectNoCodeTrait;
-    
+
     const TYPE = [
         'CLIENT' => 'CLIENT',
         'EXTRA' => 'EXTRA',
         'AUTH' => 'AUTH',
         'ADMIN' => 'ADMIN'
+
     ];
 
 

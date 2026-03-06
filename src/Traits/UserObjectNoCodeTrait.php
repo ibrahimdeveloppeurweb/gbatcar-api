@@ -7,38 +7,26 @@ use Ramsey\Uuid\UuidInterface;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Symfony\Component\Serializer\Annotation\Groups;
 
-trait  UserObjectNoCodeTrait
+trait UserObjectNoCodeTrait
 {
     /**
      * @var UuidInterface
      * @ORM\Column(type="uuid", length=255, unique=true)
-     * @Groups({"city","agency","house", "role", "contract", "inventory", "country", "admin", "user", "customer", "tenant", "owner", "invoice", "rental", "subdivision", 
-     * "islet", "lot", "mandate", "service", "folderC", "penality", "rent", "contract", "provider", "package", "construction", "homeType", "home", "promotion", "setting" ,"etape","tunnel",
-     * "sms", "mail", "template","attibuate","agent","prospect", "subscription","optionF","funding","repayment", "path","advance", "paymentC", "ticket","chat", "terminate", "terminateM", "treasury", "file-signe", "spent", "equipment",
-     * "tva", "account", "log", "logNature", "planModel", "accountingSetting", "defaultAccount", "trustee", "default", "house_co", "home_co", "optionS", "operation", "invoiceP", "funds-apeal", "houseco-lot", "homeco-lot","loadT",
-     * "reservation", "folderR"})
+     * @Groups({"user", "admin", "setting"})
      */
     private $uuid;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="create")
-     * @Groups({"house", "contract", "role", "inventory", "country", "admin", "user", "customer", "tenant", "owner", "invoice", "rental", "subdivision", "islet",
-     *  "lot", "mandate", "service", "folderC", "penality", "rent", "contract", "provider", "construction", "homeType", "home", "setting","sms", "mail", "template","etape","tunnel",
-     *  "subscription","optionF","funding","attibuate","agent","prospect", "repayment", "path","advance", "paymentC", "ticket","chat", "treasury", "file-signe", "spent", "equipment",
-     *  "tva", "account", "log", "logNature", "planModel", "accountingSetting", "defaultAccount", "trustee", "default", "house_co", "home_co", "optionS", "operation", "invoiceP", "funds-apeal", "houseco-lot", "homeco-lot","loadT",
-     * "reservation", "folderR"})
+     * @Groups({"user", "admin", "setting"})
      */
     private $createdAt;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="update")
-     * @Groups({"house", "contract", "inventory", "country", "admin", "user", "customer", "tenant", "owner", "invoice", "rental", "subdivision", "islet", "lot",
-     *  "mandate", "service", "folderC", "penality", "rent", "contract", "provider", "construction", "homeType", "home", "setting", "sms", "mail", "template","etape","tunnel",
-     *  "subscription","optionF","funding","attibuate","agent","prospect", "repayment", "path","advance", "paymentC", "ticket","chat", "treasury", "file-signe", "spent", "equipment",
-     *  "tva", "account", "log", "logNature", "planModel", "accountingSetting", "defaultAccount", "trustee", "default", "house_co", "home_co", "optionS", "operation", "invoiceP", "funds-apeal", "houseco-lot", "homeco-lot","loadT",
-     * "reservation", "folderR"})
+     * @Groups({"user", "admin", "setting"})
      */
     private $updatedAt;
 
@@ -99,9 +87,7 @@ trait  UserObjectNoCodeTrait
     }
 
     /**
-     * @Groups({"house", "contract", "inventory", "country", "admin", "user", "customer", "tenant", "owner", "invoice", "rental", "subdivision", "islet", "path", "etape","tunnel",
-     * "lot", "mandate", "service","attibuate","agent","prospect",  "folderC", "penality", "rent", "contract", "provider", "construction", "homeType", "home","subscription","optionF","funding",
-     * "repayment","advance", "treasury", "file-signe", "spent", "equipment", "reservation", "folderR"})
+     * @Groups({"user", "admin", "setting"})
      */
     public function getCreate(): ?string
     {
@@ -121,9 +107,7 @@ trait  UserObjectNoCodeTrait
     }
 
     /**
-     * @Groups({"house", "role", "contract", "inventory", "country", "admin", "user", "customer", "tenant", "owner", "invoice", "rental", "subdivision", "islet", "path", "etape","tunnel",
-     * "lot", "mandate", "service", "folderC","attibuate","agent","prospect", "penality", "rent", "contract", "provider", "construction", "homeType", "home","subscription","optionF","funding",
-     * "repayment","advance", "treasury", "file-signe", "spent", "equipment", "reservation", "folderR"})
+     * @Groups({"user", "admin", "setting"})
      */
     public function getUpdate(): ?string
     {

@@ -58,26 +58,11 @@ class SecurityController extends AbstractController
     }
 
 
-    /**
-     * @Route("/test", name="login1", methods={"POST","GET"}, 
-     * options={"description"="Se connecter"})
-     */
-    public function login1(Request $request)
-    {
-        dd("bonnnnnnn");
-        // try {
-        //     $token = $this->securityManager->checkCredential($request)->getAccessToken();
-        //     $response = (new JsonHelper($token, 'Connexion reussie', 'success', 200, []))->serialize();
-        // } catch (ExceptionApi $e) {
-        //     $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
-        //     return $this->json($response, $e->getCode(), [], ['groups' => ["file", "photo"]]);
-        // }
-        // return $this->json($response);
-    }
+   
 
     /**
      * @Route("/api/logout", name="logout", methods={"POST"}, 
-     * options={"description"="Se deconnecter"})
+     * options={"description"="Se deconnecter "})
      */
     public function logout(Request $request)
     {
@@ -189,23 +174,7 @@ class SecurityController extends AbstractController
         return $this->json($response, 200, [], ['groups' => ["user", "file", "photo"]]);
     }
 
-    // /**
-    //  * @Route("/api/auth/rest/access", name="reset_access", 
-    //  * methods={"POST"}, options={"description"="Réinitialiser les accès utilisateur", "permission"="USER:ACCESS:RESET"})
-    //  */
-    // public function resetAccess(Request $request)
-    // {
-    //     try {
-    //         $agency = AgencyHelper::agency($this->getUser());
-    //         $data = json_decode($request->getContent());
-    //         $user = $this->securityManager->resetAccess($data, $agency);
-    //         $response = (new JsonHelper($user, 'Votre mot de passe a été réinitialisé avec succès', 'success', 200, []))->serialize();
-    //     } catch (ExceptionApi $e) {
-    //         $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
-    //         return $this->json($response, $e->getCode(), [], ['groups' => ["user", "file", "photo"]]);
-    //     }
-    //     return $this->json($response, 200, [], ['groups' => ["user", "file", "photo"]]);
-    // }
+
 
     /**
      * @Route("/api/auth/rest/password", name="reset_passord", 

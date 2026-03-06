@@ -4,50 +4,116 @@ namespace App\Utils;
 
 class Constants
 {
-    const EQUIPEMENT = [
-       'Porte',
-       'Fenêtre',
-       'Etanchéité',
-       'Sol',
-       'Mur',
-       'Prise',
-       'Éclairage',
-       'Sanitaire',
-       'Serrure',
-       'Poignet',
-       'WC',
-       'Mirroire',
-       'Chauffe eau'
+    /**
+     * Types d'utilisateurs dans GbatCar
+     * - ADMIN : Administrateur de la plateforme (accès complet)
+     * - MANAGER : Collaborateur / Gestionnaire de flotte
+     * - CLIENT : Locataire (peut se connecter sur l'application mobile)
+     */
+    const USER_TYPE = [
+        'ADMIN' => 'ADMIN',
+        'MANAGER' => 'MANAGER',
+        'CLIENT' => 'CLIENT',
     ];
 
+    /**
+     * Rôles Symfony correspondant aux types d'utilisateurs GbatCar
+     */
+    const USER_ROLES = [
+        'ADMIN' => 'ROLE_ADMIN',
+        'MANAGER' => 'ROLE_MANAGER',
+        'CLIENT' => 'ROLE_CLIENT',
+    ];
+
+    /**
+     * Plateformes autorisées à se connecter
+     * - ADMIN  : Application web d'administration
+     * - MOBILE : Application mobile client (GbatCar App)
+     */
+    const PLATFORMS = [
+        'ADMIN' => 'ADMIN',
+        'MOBILE' => 'MOBILE',
+    ];
+
+    /**
+     * Périodicités de contrat de location en nombre de mois
+     */
     const PERIODICITE = [
         'MENSUEL' => 1,
         'TRIMESTRIEL' => 3,
         'SEMESTRIEL' => 6,
-        'ANNUEL' => 12
-    ];
-    
-    const SERVICES = [
-        'Service commercial',
-        'Service recouvrement',
-        'Service comptabilité / trésorerie'
+        'ANNUEL' => 12,
     ];
 
-    const CAISSE = ['Caisse principale'];
-
-    const USER_ROLES = [
-        'ADMIN' => 'ROLE_USER_ADMIN', 
-        'AGENCY' => 'ROLE_USER_AGENCY',
-        'SITE' => 'ROLE_USER_AGENCY',
-        'MARCHAND' => 'ROLE_USER_MARCHAND',
-        'CUSTOMER' => 'ROLE_USER_CUSTOMER',
-        'TENANT' => 'ROLE_USER_TENANT',
-        'PROSPECT' => 'ROLE_USER_PROSPECT',
-        'AGENT' => 'ROLE_USER_AGENT',
-        'RECOUVREUR' => 'ROLE_USER_RECOUVREUR'
+    /**
+     * Statuts d'un Contrat de Location
+     */
+    const CONTRAT_STATUS = [
+        'EN_COURS' => 'EN_COURS',
+        'TERMINE' => 'TERMINE',
+        'SUSPENDU' => 'SUSPENDU',
+        'ANNULE' => 'ANNULE',
     ];
 
-    const COUNTRIES = [ 
+    /**
+     * Statuts d'un Paiement
+     */
+    const PAIEMENT_STATUS = [
+        'EN_ATTENTE' => 'EN_ATTENTE',
+        'PAYE' => 'PAYE',
+        'EN_RETARD' => 'EN_RETARD',
+        'PARTIEL' => 'PARTIEL',
+    ];
+
+    /**
+     * Types de paiements acceptés
+     */
+    const PAIEMENT_TYPE = [
+        'ESPECES' => 'ESPECES',
+        'VIREMENT' => 'VIREMENT',
+        'MOBILE_MONEY' => 'MOBILE_MONEY',
+        'CARTE' => 'CARTE',
+        'CHEQUE' => 'CHEQUE',
+    ];
+
+    /**
+     * Types d'incidents sur un véhicule
+     */
+    const INCIDENT_TYPE = [
+        'ACCIDENT' => 'ACCIDENT',
+        'PANNE' => 'PANNE',
+        'VOL' => 'VOL',
+        'VANDALISME' => 'VANDALISME',
+        'AUTRE' => 'AUTRE',
+    ];
+
+    /**
+     * Catégories de véhicules
+     */
+    const VEHICULE_CATEGORIE = [
+        'CITADINE' => 'CITADINE',
+        'BERLINE' => 'BERLINE',
+        'SUV' => 'SUV',
+        'UTILITAIRE' => 'UTILITAIRE',
+        'MINIBUS' => 'MINIBUS',
+        'CAMION' => 'CAMION',
+        'MOTO' => 'MOTO',
+    ];
+
+    /**
+     * Statuts d'un Véhicule
+     */
+    const VEHICULE_STATUS = [
+        'DISPONIBLE' => 'DISPONIBLE',
+        'EN_LOCATION' => 'EN_LOCATION',
+        'EN_REVISION' => 'EN_REVISION',
+        'HORS_SERVICE' => 'HORS_SERVICE',
+    ];
+
+    /**
+     * Formats de numéros de téléphone internationaux
+     */
+    const COUNTRIES = [
         "AD" => "999 999",
         "AE" => "999 999 9999",
         "AF" => "999 999 9999",
@@ -134,7 +200,7 @@ class Constants
         "GQ" => "999 999 999",
         "GR" => "999 999 9999",
         "GT" => "9999 9999",
-        "GU" =>  "999-9999",
+        "GU" => "999-9999",
         "GW" => "999 999 999",
         "GY" => "999 9999",
         "HK" => "9999 9999",
@@ -290,43 +356,17 @@ class Constants
         "ZW" => "999 999 9999"
     ];
 
-    /**
-     * Recupere les prochaines mois eb fonction de la periodicite (Cadence) et du mois referent
-     * @param string $periodicite
-     * @param string $mois
-     * @return array
-     */
-    public function mois(string $periodicite, string $mois)
+    static function END(int $index, int $taille): string
     {
-        $tab = [];
-        //On retire un mois sur le mois courant afin de pourvoir generer les mois suivants
-        //En prenant en compte ce mois
-        $month = (new \DateTime($mois))->modify('-1 month');
-        for ($i=1; $i <= Constants::PERIODICITE[$periodicite]; $i++) {
-            $month = $month->modify('+1 month');
-            $ani = [];
-            $ani[] = $month;
-            $tab = $ani;
-        }
-        return $tab;
-    }
-
-    static function END(int $index, int $taille): string {
         return ($index === $taille) ? "" : " / ";
     }
 
     /**
      * Fonction d'arrondi
-     *
-     * @param $value Il s'agit de la valeur à arrondir
-     * @param $arrondi Il s'agit du niveau d'arrondi (0,05 / 0,10 / 0,20 / ...) --> Valeur utilisées : 5 / 10 / 20 / 50 (je n'ai pas testé d'autres valeurs)
-     * @param $roundType Il s'agit du type d'arrondi (arrondi à la valeur la plus proche ou à la valeur suppérieure) - Valeurs possibles : "round" / "ceil"
-     * @param $precision 1(par défaut) pour les dizaines, 2 pour les centaines, 3 pour millier - En utilisant la valeur "1" c'est good!
-     * @return unknown_type Retourne la valeur de la décimale une fois arrondie
-    */
+     */
     static function decRound($value, $arrondi, $roundType, $precision = 1)
     {
-        $p = pow ($arrondi, $precision);
-        return $roundType ($value / $p) * $p;
+        $p = pow($arrondi, $precision);
+        return $roundType($value / $p) * $p;
     }
 }

@@ -5,7 +5,6 @@ namespace App\Manager\Extra;
 use App\Entity\Admin\User;
 use App\Entity\Extra\File;
 use App\Entity\Extra\Folder;
-use App\Repository\Admin\AgencyRepository;
 use App\Repository\Admin\UserRepository;
 use App\Repository\Extra\FolderRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,12 +21,12 @@ class UploaderManager
     /** @var User */
     private $user;
     /*
-    * Taille des morceaux
-    */
+     * Taille des morceaux
+     */
     private $chunkSize = 1024 * 1024 * 100;
     /*
-    * Nombre de morceaux reçu d'un fichier
-    */
+     * Nombre de morceaux reçu d'un fichier
+     */
     private $totalChunkReceived = 0;
     private $missingChunk;
     private $missingMessage = '';
@@ -39,40 +38,38 @@ class UploaderManager
     private $folder = null;
     private $folderUuid = null;
     /*
-    * Dossier d'upload temporaire
-    */
+     * Dossier d'upload temporaire
+     */
     private $uploadFolder = __DIR__ . '/../../../public/';
     private $allowedExtensions = [
-        'image/jpeg', 
-        'image/png', 
-        'image/gif', 
-        'application/pdf', 
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'application/pdf',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
-    private $agencyRepository;
     private $folderRepository;
     private $userRepository;
 
     public function __construct(
-        EntityManagerInterface $em, 
-        AgencyRepository $agencyRepository,
+        EntityManagerInterface $em,
         FolderRepository $folderRepository,
         TokenStorageInterface $tokenStorage,
-         UserRepository $userRepository,
-    ) {
+        UserRepository $userRepository,
+        )
+    {
         if ($tokenStorage->getToken()) {
             $this->user = $tokenStorage->getToken()->getUser();
         }
         $this->em = $em;
-        $this->agencyRepository = $agencyRepository;
         $this->folderRepository = $folderRepository;
         $this->userRepository = $userRepository;
     }
-    
+
     public function base64($data, $entity)
     {
-        
+
         $path = $this->uploadFolder . $entity->getFolderPath();
         if (!file_exists($path)) {
             mkdir($path, 0777, true); // Changez les permissions selon vos besoins
@@ -83,11 +80,11 @@ class UploaderManager
             throw new \Exception('Le fichier est corrompu ');
         }
         $fileContent = base64_decode($base64Data);
-        
+
         // Génération d'un nom de fichier unique
         $extension = $this->mime2ext($data->fileType);
         $src = $data->uniqId . '.' . $extension;
-        
+
         // Sauvegarde du fichier dans le répertoire spécifié
         $fileSaved = file_put_contents($path . $src, $fileContent);
 
@@ -99,9 +96,9 @@ class UploaderManager
 
         $this->em->persist($this->file);
         $entity->setPhoto($this->file);
-        
+
     }
-    
+
     public function create($data, $entity)
     {
         // On verifie ici que l'utilisateur en cours à bien l'autorisation d'uploader des fichiers sur le serveur
@@ -110,12 +107,12 @@ class UploaderManager
         }
         // On recupére uniquement les informations prévues pour l'upload
         // On peut ici par exemple decider de bloquer une requête qui contient des paramètres
-        
+
         $this->tempFolder .= $this->uploadFolder . $entity->getFolderPath();
-        
+
         // On verifie les types de fichiers autorisé
         if (!in_array($data->fileType, $this->allowedExtensions, false)) {
-            throw New \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
+            throw new \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
         }
         $fileUniqFolder = $this->createUniqFolder($data, "IMAGE");
         $fileChunks = $this->getFileChunks($fileUniqFolder);
@@ -135,7 +132,7 @@ class UploaderManager
                 ];
             }
         }
-        
+
         // on enregistre le morceau actuel
         $result = null;
         if ((int)$data->loaded < (int)$chunksNum) {
@@ -149,7 +146,7 @@ class UploaderManager
                 ];
             }
         }
-        
+
         if ($this->isReadyToMerge($data, $fileUniqFolder, $chunksNum)) {
             $genResult = $this->generateFile($data, $fileUniqFolder, $entity);
             return [
@@ -161,28 +158,15 @@ class UploaderManager
             ];
         }
     }
-    
+
     public function signature($user, $data)
     {
-        if ($user->getAgency() && $user->getTenant() && $user->getCustomer() && $user->getOwner()) {
-            $agency =null;
-            if ($user->getAgency()) {
-                $agency = $user->getAgency();
-            }elseif ($user->getTenant()) {
-                $agency = $user->getTenant()->getAgency();
-            }elseif ($user->getCustomer()) {
-                $agency = $user->getCustomer()->getAgency();
-            }elseif ($user->getOwner()) {
-                $agency = $user->getOwner()->getAgency();
-            }
-            $this->tempFolder .= $this->uploadFolder . 'uploads/' . $agency->getUuid() . '_' .str_replace(' ', '', $agency->getNom()). '/signature' .'/';
-        } else {
-            $this->tempFolder .= $this->uploadFolder . 'uploads/signature' .'/';
-        }
+        $userFolderName = $user ? $user->getUuid() . '_' . str_replace(' ', '', $user->getNom()) : 'anonymous';
+        $this->tempFolder .= $this->uploadFolder . 'uploads/' . $userFolderName . '/signature/';
 
         // On verifie les types de fichiers autorisé
         if (!in_array($data->fileType, $this->allowedExtensions, false)) {
-            throw New \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
+            throw new \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
         }
         $fileUniqFolder = $this->createUniqFolder($data, "IMAGE");
         $fileChunks = $this->getFileChunks($fileUniqFolder);
@@ -202,7 +186,7 @@ class UploaderManager
                 ];
             }
         }
-        
+
         // on enregistre le morceau actuel
         $result = null;
         if ((int)$data->loaded < (int)$chunksNum) {
@@ -216,32 +200,27 @@ class UploaderManager
                 ];
             }
         }
-        
-        // if ($this->isReadyToMerge($data, $fileUniqFolder, $chunksNum)) {
-        //     $genResult = $this->generateSignature($data, $fileUniqFolder, $user);
-        //     return [
-        //         'success' => true,
-        //         "status" => "finished",
-        //         'id' => $this->file instanceof File ? $this->file->getUuid() : '',
-        //         "folderUuid" => $this->folderUuid,
-        //         "generated" => true,
-        //     ];
-        // }
+
+    // if ($this->isReadyToMerge($data, $fileUniqFolder, $chunksNum)) {
+    //     $genResult = $this->generateSignature($data, $fileUniqFolder, $user);
+    //     return [
+    //         'success' => true,
+    //         "status" => "finished",
+    //         'id' => $this->file instanceof File ? $this->file->getUuid() : '',
+    //         "folderUuid" => $this->folderUuid,
+    //         "generated" => true,
+    //     ];
+    // }
     }
-    
+
     public function folder($request)
     {
         $data = \json_decode($request->getContent());
-        $agency = $this->agencyRepository->findOneByUuid($data->agency); 
-        $user = $this->userRepository->findOneBy(['isFirst' => true]); 
-        if ($agency) {
-         $this->tempFolder .= $this->uploadFolder . 'uploads/' . $agency->getUuid() . '_' .str_replace(' ', '', $agency->getNom()). '/' . $data->path.  '/';
+        $user = $this->userRepository->findOneBy(['isFirst' => true]);
 
-        } else {
-         $this->tempFolder .= $this->uploadFolder . 'uploads/' . $user->getUuid() . '_' .str_replace(' ', '', $user->getNom()). '/' . $data->path.  '/';
+        $userFolderName = $user ? $user->getUuid() . '_' . str_replace(' ', '', $user->getNom()) : 'default_admin';
+        $this->tempFolder .= $this->uploadFolder . 'uploads/' . $userFolderName . '/' . $data->path . '/';
 
-        }
-        
 
         // On verifie ici que l'utilisateur en cours à bien l'autorisation d'uploader des fichiers sur le serveur
         if (!$this->isUserAllowedToUpload()) {
@@ -249,12 +228,12 @@ class UploaderManager
         }
         // On recupére uniquement les informations prévues pour l'upload
         // On peut ici par exemple decider de bloquer une requête qui contient des paramètres
-        
+
         // $this->tempFolder .= $this->uploadFolder . $entity->getFolderPath();
-        
+
         // On verifie les types de fichiers autorisé
         if (!in_array($data->fileType, $this->allowedExtensions, false)) {
-            throw New \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
+            throw new \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
         }
         $folder = $this->createUniqFolder($data, "FOLDER");
         $fileChunks = $this->getFileChunks($folder);
@@ -274,7 +253,7 @@ class UploaderManager
                 ];
             }
         }
-        
+
         // on enregistre le morceau actuel
         $result = null;
         if ((int)$data->loaded < (int)$chunksNum) {
@@ -288,7 +267,7 @@ class UploaderManager
                 ];
             }
         }
-        
+
         if ($this->isReadyToMerge($data, $folder, $chunksNum)) {
             $file = $this->generateFolder($data, $folder);
             return [
@@ -300,12 +279,13 @@ class UploaderManager
             ];
         }
     }
-    
+
     public function signed($request)
     {
         $data = \json_decode($request->getContent());
-        $agency = $this->agencyRepository->findOneByUuid($data->agency); 
-        $this->tempFolder .= $this->uploadFolder . 'uploads/' . $agency->getUuid() . '_' .str_replace(' ', '', $agency->getNom()). '/' . $data->path.  '/';
+        $user = $this->user;
+        $userFolderName = $user ? $user->getUuid() . '_' . str_replace(' ', '', $user->getNom()) : 'signatures';
+        $this->tempFolder .= $this->uploadFolder . 'uploads/' . $userFolderName . '/' . $data->path . '/';
 
         // On verifie ici que l'utilisateur en cours à bien l'autorisation d'uploader des fichiers sur le serveur
         if (!$this->isUserAllowedToUpload()) {
@@ -313,12 +293,12 @@ class UploaderManager
         }
         // On recupére uniquement les informations prévues pour l'upload
         // On peut ici par exemple decider de bloquer une requête qui contient des paramètres
-        
+
         // $this->tempFolder .= $this->uploadFolder . $entity->getFolderPath();
-        
+
         // On verifie les types de fichiers autorisé
         if (!in_array($data->fileType, $this->allowedExtensions, false)) {
-            throw New \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
+            throw new \Exception('Type de fichier ' . $data->fileType . ' non autorisé');
         }
         $folder = $this->createUniqFolder($data, "FOLDER");
         $fileChunks = $this->getFileChunks($folder);
@@ -338,7 +318,7 @@ class UploaderManager
                 ];
             }
         }
-        
+
         // on enregistre le morceau actuel
         $result = null;
         if ((int)$data->loaded < (int)$chunksNum) {
@@ -352,7 +332,7 @@ class UploaderManager
                 ];
             }
         }
-        
+
         if ($this->isReadyToMerge($data, $folder, $chunksNum)) {
             $this->generateSigned($data, $folder);
             return [
@@ -376,36 +356,28 @@ class UploaderManager
         if (!is_dir($this->tempFolder . $data->uniqId . '/')) {
             try {
                 mkdir($this->tempFolder . $data->uniqId, 0777, true);
-            } catch (\Exception $e) {
-                throw New \Exception('impossible de créer le dossier temporaire ' . $data->uniqId . ' dans ' . $this->tempFolder . ' Vérifier les droits d\'accès');
+            }
+            catch (\Exception $e) {
+                throw new \Exception('impossible de créer le dossier temporaire ' . $data->uniqId . ' dans ' . $this->tempFolder . ' Vérifier les droits d\'accès');
             }
         }
         return $this->tempFolder . $data->uniqId . '/';
     }
 
-    public function renameFolder($agency, $nom)
+    public function renameFolder($entity, $nom)
     {
-        // on recupere l'uuid concatené au nom 
-        if ($agency && $nom) {
-            $old = 'uploads/' . $agency->getUuid(). '_' .str_replace(' ', '', $nom) .'/';
-            $new = 'uploads/' . $agency->getUuid(). '_' .str_replace(' ', '',$agency->getNom()).'/';
-
-            $this->folderOld .= $this->uploadFolder . $old;
-            $this->folderNew .= $this->uploadFolder . $new;
-            if (is_dir($this->folderOld)) {
-                rename($this->folderOld, $this->folderNew);
-            }
-        }
+    // Removed legacy agency rename logic
     }
 
-    public function deleteFolder($uuid, $path, $agency)
+    public function deleteFolder($uuid, $path)
     {
         $folder = $this->folderRepository->findOneByUuid($uuid);
         if ($folder) {
             foreach ($folder->getFiles() as $file) {
                 if (isset($path) && $path !== null && $path !== 'null') {
-                    $path = 'uploads/'.$agency->getUuid().'_'.str_replace(' ', '', $agency->getNom()).'/'.$path.'/'.$file->getSrc();
-                }else{
+                    $path = 'uploads/deleted_folders/' . $path . '/' . $file->getSrc();
+                }
+                else {
                     $path = $file->getFullPath();
                 }
                 $this->deleteFile($path);
@@ -417,8 +389,8 @@ class UploaderManager
 
     public function deleteFile($path)
     {
-        $path = $this->uploadFolder.$path;
-        if (file_exists($path)) 
+        $path = $this->uploadFolder . $path;
+        if (file_exists($path))
             @unlink($path);
     }
 
@@ -434,7 +406,7 @@ class UploaderManager
             }
             closedir($handle);
         }
-        
+
         return $files;
     }
 
@@ -452,7 +424,8 @@ class UploaderManager
             for ($i = 0; $i < $currentChunkCount; $i++) {
                 if (file_exists($fileUniqFolder . $data->uniqId . '.filePart' . $i)) {
                     ++$received;
-                } else {
+                }
+                else {
                     $this->missingMessage = 'missing ' . $data->uniqId . '.filePart' . $i;
                     $this->missingChunk = $i;
                     return true;
@@ -464,14 +437,15 @@ class UploaderManager
         }
         return false;
     }
-    
+
     private function saveChunk($data)
     {
         $chunk = $this->decode_chunk($data->chunk);
         try {
             file_put_contents($this->createUniqFolder($data) . $data->uniqId . '.filePart' . $data->loaded, $chunk, FILE_APPEND);
             return true;
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $e;
         }
 
@@ -606,7 +580,7 @@ class UploaderManager
     //         if (file_exists($base)) {
     //             @unlink($base);
     //         }
-            
+
     //         $folder = $this->folderRepository->findOneByUuid($data->folderUuid);
     //         $this->file = new File();
     //         $this->file->setCreateBy($this->user);
@@ -691,7 +665,7 @@ class UploaderManager
             if (file_exists($base)) {
                 @unlink($base);
             }
-            
+
             $signed = $this->folderRepository->findOneByUuid($data->signedPath);
             $this->file = new File();
             $this->file->setCreateBy($this->user);
@@ -899,7 +873,7 @@ class UploaderManager
             'application/s-compressed' => 'zip',
             'multipart/x-zip' => 'zip',
             'text/x-scriptzsh' => 'zsh',
-        ];  
+        ];
         return isset($mime_map[$mime]) ? $mime_map[$mime] : false;
     }
 }

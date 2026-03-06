@@ -2,7 +2,6 @@
 
 namespace App\Entity\Extra;
 
-use App\Entity\Admin\Agency;
 use App\Entity\Admin\User;
 use App\Repository\Extra\RoleRepository;
 use App\Traits\SearchableTrait;
@@ -65,10 +64,6 @@ class Role
      */
     private $isFirst;
 
-    /**
-     * @ORM\ManyToOne(targetEntity=Agency::class, inversedBy="roles")
-     */
-    private $agency;
 
     public function __construct()
     {
@@ -117,7 +112,7 @@ class Role
         return $this;
     }
 
-      /**
+    /**
      * @Groups({"role","user"})
      */
     function getSearchableTitle(): string
@@ -130,7 +125,7 @@ class Role
      */
     function getSearchableDetail(): string
     {
-        return $this->nom ;
+        return $this->nom;
     }
 
     /**
@@ -199,15 +194,4 @@ class Role
         return $this;
     }
 
-    public function getAgency(): ?Agency
-    {
-        return $this->agency;
-    }
-
-    public function setAgency(?Agency $agency): self
-    {
-        $this->agency = $agency;
-
-        return $this;
-    }
 }

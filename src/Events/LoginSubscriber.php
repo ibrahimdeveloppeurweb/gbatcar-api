@@ -18,9 +18,9 @@ class LoginSubscriber implements EventSubscriberInterface
     private $userRepository;
     public function __construct(
         EntityManagerInterface $em,
-        JWTEncoderInterface $encoder, 
+        JWTEncoderInterface $encoder,
         UserRepository $userRepository
-    )
+        )
     {
         $this->em = $em;
         $this->encoder = $encoder;
@@ -42,9 +42,7 @@ class LoginSubscriber implements EventSubscriberInterface
                 'token' => $array['token'],
                 'isFirstUser' => method_exists($user, 'getIsFirst') ? $user->getIsFirst() : null,
                 'role' => $user->getRoles()[0],
-                'agencyKey' => $user->getAgency() !== null ? $user->getAgency()->getUuid() : null,
                 'refreshToken' => '',
-
             ],
             'status' => 'success',
             'code' => 200,
