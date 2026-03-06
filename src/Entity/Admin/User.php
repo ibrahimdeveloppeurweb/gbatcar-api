@@ -3,9 +3,6 @@
 namespace App\Entity\Admin;
 
 use App\Entity\Admin\Admin;
-use App\Entity\Admin\Agency;
-use App\Entity\Admin\Shop;
-use App\Entity\Admin\Shopper;
 use App\Entity\Extra\RefreshToken;
 use App\Entity\Extra\Role;
 use App\Traits\EntityTrait;
@@ -39,7 +36,8 @@ class User implements UserInterface
 
     const TYPE = [
         'ADMIN' => 'ADMIN',
-        'USER' => 'USER',
+        'MANAGER' => 'MANAGER',
+        'CLIENT' => 'CLIENT',
     ];
 
     /**
@@ -52,7 +50,7 @@ class User implements UserInterface
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"user","service","ticket", "treasury", "chat","house"})
+     * @Groups({"user", "admin"})
      */
     private $civilite;
 
@@ -68,17 +66,17 @@ class User implements UserInterface
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"user","customer","contract"})
+     * @Groups({"user"})
      */
     private $telephone;
 
-     /**
+    /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"user","owner","customer","contract", "treasury","prospect","house"})
+     * @Groups({"user", "admin"})
      */
-    private $type = User::TYPE['USER'];
+    private $type = User::TYPE['ADMIN'];
 
-     /**
+    /**
      * @ORM\Column(type="boolean")
      * @Groups({"user"})
      */
@@ -95,12 +93,12 @@ class User implements UserInterface
      */
     private $email;
 
-       /**
+    /**
      * @ORM\Column(type="boolean")
      */
     private $isLocked = false;
 
-     /**
+    /**
      * @ORM\Column(type="boolean")
      */
     private $isEnabled = false;
@@ -132,45 +130,17 @@ class User implements UserInterface
      */
     private $droits;
 
-  
-
-    /**
-     * @ORM\ManyToOne(targetEntity=Agency::class, inversedBy="users")
-     */
-    private $agency;
-
-    /**
-     * @ORM\ManyToOne(targetEntity=Shop::class, inversedBy="users")
-     */
-    private $shop;
-
-    /**
-     * @ORM\OneToOne(targetEntity=Shopper::class, inversedBy="usered", cascade={"persist", "remove"})
-     */
-    private $shopper;
-
     /**
      * @ORM\OneToOne(targetEntity=Admin::class, inversedBy="users", cascade={"persist", "remove"})
      */
     private $admin;
 
-    /**
-     * @ORM\OneToMany(targetEntity=Service::class, mappedBy="responsable")
-     */
-    private $services;
-
-    /**
-     * @ORM\ManyToOne(targetEntity=Service::class, inversedBy="users")
-     */
-    private $service;
-
     public function __construct()
     {
         $this->droits = new ArrayCollection();
-        $this->services = new ArrayCollection();
     }
 
-    
+
 
     public function getId(): ?int
     {
@@ -249,7 +219,7 @@ class User implements UserInterface
         return $this;
     }
 
-        public function getConfirmationToken(): ?string
+    public function getConfirmationToken(): ?string
     {
         return $this->confirmationToken;
     }
@@ -276,7 +246,7 @@ class User implements UserInterface
     public function getIsOnline(): ?bool
     {
         return $this->isOnline;
-    }   
+    }
 
     public function setIsOnline(?bool $isOnline): self
     {
@@ -325,60 +295,39 @@ class User implements UserInterface
 
     public function getLibelle(): ?string
     {
-        $nom = "";
-        return $nom;
+        return trim(($this->prenom ?? '') . ' ' . ($this->nom ?? ''));
     }
 
-      /**
+    /**
      * @Groups({"user"})
      */
     public function getSexe(): ?string
     {
-        $sexe = "Masculin";
-        if ($this->civilite && $this->admin !== null) {
-            $sexe = $this->civilite === 'Mr' ? 'Masculin' : 'Féminin';
-        } elseif ($this->civilite && $this->agency !== null) {
-            $sexe = $this->civilite === 'Mr' ? 'Masculin' : 'Féminin';
-        } 
-
-        return $sexe;
+        return $this->civilite === 'Mr' ? 'Masculin' : 'Féminin';
     }
 
-       /**
-     * @Groups({"user","house"})
+    /**
+     * @Groups({"user", "admin"})
      */
     public function getContact(): ?string
     {
-        $contact = "";
-        if ($this->admin !== null) {
-            $contact = $this->admin->getTelephone();
-        } elseif ($this->agency !== null) {
-            $contact = $this->telephone;
-        } elseif ($this->shop !== null) {
-            $contact = $this->shop->getContact();
-        }
-        // elseif ($this->owner !== null) {
-        //     $contact = $this->owner->getTelephone();
-        // } elseif ($this->customer !== null) {
-        //     $contact = $this->customer->getTelephone();
-        // }
-        return $contact;
+        return $this->telephone;
     }
 
     public function getRoles()
     {
-        $roles = [];
-        if ($this->admin !== null) {
-            $roles[] = Constants::USER_ROLES['ADMIN'];
-        } 
-        elseif ($this->agency !== null) {
-            $roles[] = Constants::USER_ROLES['AGENCY'];
-        } 
-        elseif ($this->shop !== null) {
-            $roles[] = Constants::USER_ROLES['MARCHAND'];
-        } 
-   
-        return $roles;
+        // Priority: look at the User's type field to deduce the Symfony role
+        if ($this->type === self::TYPE['ADMIN']) {
+            return [Constants::USER_ROLES['ADMIN']];
+        }
+        if ($this->type === self::TYPE['MANAGER']) {
+            return [Constants::USER_ROLES['MANAGER']];
+        }
+        if ($this->type === self::TYPE['CLIENT']) {
+            return [Constants::USER_ROLES['CLIENT']];
+        }
+        // Default fallback role
+        return [Constants::USER_ROLES['CLIENT']];
     }
 
     /**
@@ -454,16 +403,16 @@ class User implements UserInterface
         return $this;
     }
 
-     /**
+    /**
      * @Groups({"user"})
      */
     public function getSearchableTitle(): string
     {
 
-       return $this->getLibelle();
+        return $this->getLibelle();
     }
 
-     /**
+    /**
      * @Groups({"user"})
      */
     public function getSearchableDetail(): string
@@ -473,46 +422,7 @@ class User implements UserInterface
 
     public function getFolderPath(): string
     {
-        $nom = "";
-        return $nom;
-    }
-
-  
-
-    public function getAgency(): ?Agency
-    {
-        return $this->agency;
-    }
-
-    public function setAgency(?Agency $agency): self
-    {
-        $this->agency = $agency;
-
-        return $this;
-    }
-
-    public function getShop(): ?Shop
-    {
-        return $this->shop;
-    }
-
-    public function setShop(?Shop $shop): self
-    {
-        $this->shop = $shop;
-
-        return $this;
-    }
-
-    public function getShopper(): ?Shopper
-    {
-        return $this->shopper;
-    }
-
-    public function setShopper(?Shopper $shopper): self
-    {
-        $this->shopper = $shopper;
-
-        return $this;
+        return 'users/' . ($this->getUuid() ?? 'default');
     }
 
     public function getAdmin(): ?Admin
@@ -523,7 +433,6 @@ class User implements UserInterface
     public function setAdmin(?Admin $admin): self
     {
         $this->admin = $admin;
-
         return $this;
     }
 
@@ -536,50 +445,7 @@ class User implements UserInterface
         $refreshToken->setCreateBy($this);
         $refreshToken->setExpireAt($expireAt);
         $refreshToken->setCreatedAt($now);
-        
 
         return $refreshToken;
-    }
-
-    /**
-     * @return Collection<int, Service>
-     */
-    public function getServices(): Collection
-    {
-        return $this->services;
-    }
-
-    public function addService(Service $service): self
-    {
-        if (!$this->services->contains($service)) {
-            $this->services[] = $service;
-            $service->setResponsable($this);
-        }
-
-        return $this;
-    }
-
-    public function removeService(Service $service): self
-    {
-        if ($this->services->removeElement($service)) {
-            // set the owning side to null (unless already changed)
-            if ($service->getResponsable() === $this) {
-                $service->setResponsable(null);
-            }
-        }
-
-        return $this;
-    }
-
-    public function getService(): ?Service
-    {
-        return $this->service;
-    }
-
-    public function setService(?Service $service): self
-    {
-        $this->service = $service;
-
-        return $this;
     }
 }

@@ -22,9 +22,10 @@ class UploaderController extends AbstractController
         EntityManagerInterface $em,
         UploaderManager $uploadManager,
         FileRepository $fileRepository
-    ) {
+        )
+    {
         $this->em = $em;
-         $this->uploadManager = $uploadManager;
+        $this->uploadManager = $uploadManager;
         $this->fileRepository = $fileRepository;
     }
 
@@ -36,13 +37,14 @@ class UploaderController extends AbstractController
     public function uploader(Request $request): Response
     {
         try {
-            $result = $this->uploadManager->folder($request); 
+            $result = $this->uploadManager->folder($request);
             // $result = null; 
             $response = (new JsonHelper(json_decode(json_encode($result)), 'Image ajouté avec succès', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
-            $response = (new JsonHelper(null, $e->getMessage(),'bad_request', $e->getCode(), $e->getErrors()))->serialize();
-            return $this->json($response, $e->getCode(), [], ['groups' => ['default','file','photo','folder']]);
-        } 
+        }
+        catch (ExceptionApi $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
+            return $this->json($response, $e->getCode(), [], ['groups' => ['default', 'file', 'photo', 'folder']]);
+        }
         return $this->json($response, 200, []);
     }
 
@@ -68,14 +70,17 @@ class UploaderController extends AbstractController
     {
         try {
             $data = \json_decode($request->getContent());
-            $this->uploadManager->deleteFolder($data->uuid, $data->path, $this->getUser()->getAgency());
-            $this->em->flush(); 
-            $response = (new JsonHelper(null, 'Image Supprimer avec succès', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
-            $response = (new JsonHelper(null, $e->getMessage(),'bad_request', $e->getCode(), $e->getErrors()))->serialize();
-            return $this->json($response, $e->getCode(), [], ['groups' => ['default','file','photo','folder']]);
+            $user = $this->getUser();
+            $userFolderName = $user ? $user->getUuid() . '_' . str_replace(' ', '', $user->getNom()) : 'default_admin';
+            $this->uploadManager->deleteFolder($data->uuid, $data->path, $userFolderName);
+            $this->em->flush();
+            $response = (new JsonHelper(null, 'Dossier supprimé avec succès', 'success', 200, []))->serialize();
         }
-        return $this->json($response, 200, [], ['groups' => ['default','file','photo','folder']]);
+        catch (ExceptionApi $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
+            return $this->json($response, $e->getCode(), [], ['groups' => ['default', 'file', 'photo', 'folder']]);
+        }
+        return $this->json($response, 200, [], ['groups' => ['default', 'file', 'photo', 'folder']]);
     }
 
     /**
@@ -85,18 +90,23 @@ class UploaderController extends AbstractController
      */
     public function deleteFile(Request $request): Response
     {
-        try{
+        try {
             $data = \json_decode($request->getContent());
             $file = $this->fileRepository->findOneBySrc($data->src);
-            $path = __DIR__ . '/../../public/uploads/' . $this->getUser()->getAgency()->getUuid() . '_' .str_replace(' ', '', $this->getUser()->getAgency()->getNom()). '/'.$data->path. '/'.$data->src;
+            $user = $this->getUser();
+            $userFolderName = $user ? $user->getUuid() . '_' . str_replace(' ', '', $user->getNom()) : 'default_admin';
+            $path = __DIR__ . '/../../public/uploads/' . $userFolderName . '/' . $data->path . '/' . $data->src;
             $this->uploadManager->deleteFile($path);
-            $this->em->remove($file);
-            $this->em->flush();
-            $response = (new JsonHelper(null, 'Image Supprimer avec succès', 'success', 200, []))->serialize(); 
-        } catch(ExceptionApi $e){
-            $response = (new JsonHelper(null, $e->getMessage(),'bad_request', $e->getCode(), $e->getErrors()))->serialize();
-            return $this->json($response, $e->getCode(), [], ['groups' => ['default','file','photo','folder']]);
+            if ($file) {
+                $this->em->remove($file);
+                $this->em->flush();
+            }
+            $response = (new JsonHelper(null, 'Fichier supprimé avec succès', 'success', 200, []))->serialize();
         }
-        return $this->json($response, 200, [], ['groups' => ['default','file','photo','folder']]);
+        catch (ExceptionApi $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
+            return $this->json($response, $e->getCode(), [], ['groups' => ['default', 'file', 'photo', 'folder']]);
+        }
+        return $this->json($response, 200, [], ['groups' => ['default', 'file', 'photo', 'folder']]);
     }
 }

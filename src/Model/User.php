@@ -2,178 +2,89 @@
 
 namespace App\Model;
 
-use App\Entity\Extra\Signature;
-
+/**
+ * Modèle de données retourné au client après une authentification réussie.
+ * Ce modèle est construit par SecurityManager::getAccessToken()
+ * et représente les informations de session de l'utilisateur GbatCar.
+ */
 class User
 {
-    /**
-     * @var string|null
-     */
+    /** @var string|null Prénom de l'utilisateur */
+    private $firstname;
+
+    /** @var string|null Nom de famille de l'utilisateur */
     private $nom;
 
-    /**
-     * @var string|null
-     */
+    /** @var string|null Email de l'utilisateur */
     private $email;
 
-    /**
-     * @var string|null
-     */
+    /** @var string|null Civilité (M., Mme.) */
     private $civilite;
 
-    /**
-     * @var string|null
-     */
-    private $sexe;
-
-    /**
-     * @var string|null
-     */
+    /** @var string|null URL de la photo de profil */
     private $photo;
 
-    /**
-     * @var string|null
-     */
+    /** @var string|null JWT Token d'accès */
     private $token;
 
-    /**
-     * @var string|null
-     */
+    /** @var string|null Token de rafraîchissement */
+    private $refreshToken;
+
+    /** @var string|null UUID de l'utilisateur */
     private $uuid;
 
-    /**
-     * @var string
-     */
+    /** @var string Rôle Symfony de l'utilisateur (ROLE_ADMIN, ROLE_MANAGER, ROLE_CLIENT) */
     private $role;
 
-    /**
-     * @var string|null
-     */
-    private $agencyKey;
-
-    /**
-     * @var string|null
-     */
-    private $prospectKey;
-
-    /**
-     * @var string|null
-     */
-    private $agencyName;
-
-    /**
-     * @var string|null
-     */
-    private $country;
-
-    /**
-     * @var string|null
-     */
-    private $device;
-
-    /**
-     * @var string|null
-     */
+    /** @var string|null Numéro de téléphone */
     private $telephone;
 
-    /**
-     * @var float
-     */
-    private $prcFraisOrange;
+    /** @var string|null Nom d'utilisateur (username = email) */
+    private $username;
 
-    /**
-     * @var float
-     */
-    private $prcFraisMtn;
-
-    /**
-     * @var float
-     */
-    private $prcFraisMoov;
-
-    /**
-     * @var float
-     */
-    private $prcFraisWave;
-
-    /**
-     * @var float
-     */
-    private $prcFraisDebitcard;
-
-    /**
-     * @var boolean
-     */
+    /** @var bool Première connexion de l'utilisateur */
     private $isFirstUser = false;
 
-    /**
-     * @var boolean
-     */
-    private $isSubscribe = false;
+    /** @var \DateTimeInterface|null Date de la dernière connexion */
+    private $lastLogin;
 
-    /**
-     * @var dateTime|null
-     */
-    private $lastLogin = false;
-
-    /**
-     * @var null|[]
-     */
-    private $autorisation = [];
-
-    /**
-     * @var null|[]
-     */
+    /** @var array Liste des permissions (paths/droits) */
     private $permissions = [];
 
-    /**
-     * @var string|null
-     */
-    private $path;
+    // -----------------------------------------------------------------
+    // Getters & Setters
+    // -----------------------------------------------------------------
 
-    /**
-     * @var string|null
-     */
-    private $signature;
-
-    public function __construct()
+    public function getFirstname(): ?string
     {
-        $this->nom;
-        $this->sexe;
-        $this->civilite;
-        $this->photo;
-        $this->token;
-        $this->uuid;
-        $this->role;
-        $this->country;
-        $this->telephone;
-        $this->prcFraisOrange;
-        $this->prcFraisMtn;
-        $this->prcFraisMoov;
-        $this->prcFraisWave;
-        $this->prcFraisDebitcard;
-        $this->email;
-        $this->device;
-        $this->agencyKey;
-        $this->prospectKey;
-        $this->agencyName;
-        $this->lastLogin;
-        $this->isFirstUser;
-        $this->isSubscribe;
-        $this->autorisation;
-        $this->permissions;
-        $this->path;
-        $this->signature;
+        return $this->firstname;
     }
 
-    public function getNom()
+    public function setFirstname(?string $firstname): self
+    {
+        $this->firstname = $firstname;
+        return $this;
+    }
+
+    public function getNom(): ?string
     {
         return $this->nom;
     }
 
-    public function setNom(?string $nom): self
+    public function setName(?string $nom): self
     {
         $this->nom = $nom;
+        return $this;
+    }
+
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(?string $email): self
+    {
+        $this->email = $email;
         return $this;
     }
 
@@ -185,33 +96,10 @@ class User
     public function setCivilite(?string $civilite): self
     {
         $this->civilite = $civilite;
-
         return $this;
     }
 
-    public function getSexe()
-    {
-        return $this->sexe;
-    }
-
-    public function setSexe(?string $sexe): self
-    {
-        $this->sexe = $sexe;
-        return $this;
-    }
-
-    public function getEmail()
-    {
-        return $this->email;
-    }
-
-    public function setEmail(?string $email): self
-    {
-        $this->email = $email;
-        return $this;
-    }
-
-    public function getPhoto()
+    public function getPhoto(): ?string
     {
         return $this->photo;
     }
@@ -222,7 +110,7 @@ class User
         return $this;
     }
 
-    public function getToken()
+    public function getToken(): ?string
     {
         return $this->token;
     }
@@ -233,7 +121,18 @@ class User
         return $this;
     }
 
-    public function getUuid()
+    public function getRefreshToken(): ?string
+    {
+        return $this->refreshToken;
+    }
+
+    public function setRefreshToken(?string $refreshToken): self
+    {
+        $this->refreshToken = $refreshToken;
+        return $this;
+    }
+
+    public function getUuid(): ?string
     {
         return $this->uuid;
     }
@@ -244,40 +143,18 @@ class User
         return $this;
     }
 
-    public function getRole()
+    public function getRole(): ?string
     {
         return $this->role;
     }
 
-    public function setRole(string $role): self
+    public function setRole(?string $role): self
     {
         $this->role = $role;
         return $this;
     }
 
-    public function getCountry()
-    {
-        return $this->country;
-    }
-
-    public function setCountry(?string $country): self
-    {
-        $this->country = $country;
-        return $this;
-    }
-
-    public function getDevice()
-    {
-        return $this->device;
-    }
-
-    public function setDevice(?string $device): self
-    {
-        $this->device = $device;
-        return $this;
-    }
-
-    public function getTelephone()
+    public function getTelephone(): ?string
     {
         return $this->telephone;
     }
@@ -288,91 +165,25 @@ class User
         return $this;
     }
 
-    public function getPrcFraisOrange()
+    public function getUsername(): ?string
     {
-        return $this->prcFraisOrange;
+        return $this->username;
     }
 
-    public function setPrcFraisOrange(?float $prcFraisOrange): self
+    public function setUsername(?string $username): self
     {
-        $this->prcFraisOrange = $prcFraisOrange;
+        $this->username = $username;
         return $this;
     }
 
-    public function getPrcFraisMtn()
+    public function getIsFirstUser(): bool
     {
-        return $this->prcFraisMtn;
+        return $this->isFirstUser;
     }
 
-    public function setPrcFraisMtn(?float $prcFraisMtn): self
+    public function setIsFirstUser(bool $isFirstUser): self
     {
-        $this->prcFraisMtn = $prcFraisMtn;
-        return $this;
-    }
-
-    public function getPrcFraisMoov()
-    {
-        return $this->prcFraisMoov;
-    }
-
-    public function setPrcFraisMoov(?float $prcFraisMoov): self
-    {
-        $this->prcFraisMoov = $prcFraisMoov;
-        return $this;
-    }
-
-    public function getPrcFraisWave()
-    {
-        return $this->prcFraisWave;
-    }
-
-    public function setPrcFraisWave(?float $prcFraisWave): self
-    {
-        $this->prcFraisWave = $prcFraisWave;
-        return $this;
-    }
-
-    public function getPrcFraisDebitcard()
-    {
-        return $this->prcFraisDebitcard;
-    }
-
-    public function setPrcFraisDebitcard(?float $prcFraisDebitcard): self
-    {
-        $this->prcFraisDebitcard = $prcFraisDebitcard;
-        return $this;
-    }
-
-    public function getAgencyKey()
-    {
-        return $this->agencyKey;
-    }
-
-    public function setAgencyKey(?string $agencyKey): self
-    {
-        $this->agencyKey = $agencyKey;
-        return $this;
-    }
-
-    public function getProspectKey()
-    {
-        return $this->prospectKey;
-    }
-
-    public function setProspectKey(?string $prospectKey): self
-    {
-        $this->prospectKey = $prospectKey;
-        return $this;
-    }
-
-    public function getAgencyName()
-    {
-        return $this->agencyName;
-    }
-
-    public function setAgencyName(?string $agencyName): self
-    {
-        $this->agencyName = $agencyName;
+        $this->isFirstUser = $isFirstUser;
         return $this;
     }
 
@@ -387,101 +198,65 @@ class User
         return $this;
     }
 
-    public function getIsFirstUser()
-    {
-        return $this->isFirstUser;
-    }
-
-    public function setIsFirstUser(bool $isFirstUser): self
-    {
-        $this->isFirstUser = $isFirstUser;
-        return $this;
-    }
-
-    public function getIsSubscribe()
-    {
-        return $this->isSubscribe;
-    }
-
-    public function setIsSubscribe(bool $isSubscribe): self
-    {
-        $this->isSubscribe = $isSubscribe;
-        return $this;
-    }
-
-    public function getAutorisation()
-    {
-        return $this->autorisation;
-    }
-
-    public function setAutorisation(?array $autorisation): self
-    {
-        $this->autorisation = $autorisation;
-        return $this;
-    }
-
-    public function getPermissions()
+    public function getPermissions(): array
     {
         return $this->permissions;
     }
 
     public function setPermissions(?array $permissions): self
     {
-        $this->permissions = $permissions;
+        $this->permissions = $permissions ?? [];
         return $this;
     }
 
-    public function getPath()
-    {
-        return $this->path;
-    }
-
-    public function setPath(?string $path): self
-    {
-        $this->path = $path;
-        return $this;
-    }
-
-    public function getSignature()
-    {
-        return $this->signature;
-    }
-
-    public function setSignature(?string $signature): self
-    {
-        $this->signature = $signature;
-        return $this;
-    }
-
-    public function getData()
+    /**
+     * Retourne toutes les données à envoyer au client en réponse à la connexion.
+     * Ce tableau est utilisé dans SecurityManager::getAccessToken().
+     */
+    public function getData(): array
     {
         return [
-            'nom' => $this->nom,
-            'civilite' => $this->civilite,
-            'sexe' => $this->sexe,
-            'photo' => $this->photo,
-            'token' => $this->token,
             'uuid' => $this->uuid,
-            'agencyKey' => $this->agencyKey,
-            'prospectKey' => $this->prospectKey,
-            'agencyName' => $this->agencyName,
-            'country' => $this->country,
-            'device' => $this->device,
-            'telephone' => $this->telephone,
-            'prcFraisOrange' => $this->prcFraisOrange,
-            'prcFraisMtn' => $this->prcFraisMtn,
-            'prcFraisMoov' => $this->prcFraisMoov,
-            'prcFraisWave' => $this->prcFraisWave,
-            'prcFraisDebitcard' => $this->prcFraisDebitcard,
+            'nom' => $this->nom,
+            'firstname' => $this->firstname,
+            'civilite' => $this->civilite,
             'email' => $this->email,
-            'lastLogin' => $this->lastLogin,
-            'isFirstUser' => $this->isFirstUser,
-            'isSubscribe' => $this->isSubscribe,
+            'telephone' => $this->telephone,
+            'username' => $this->username,
+            'photo' => $this->photo,
             'role' => $this->role,
-            'autorisation' => $this->autorisation,
+            'token' => $this->token,
+            'isFirstUser' => $this->isFirstUser,
+            'lastLogin' => $this->lastLogin,
             'permissions' => $this->permissions,
-            'path' => $this->path,
-            'signature' => $this->signature
         ];
+    }
+
+    /**
+     * Alias pour la compatibilité avec l'appel setContact() dans SecurityManager
+     */
+    public function setContact(?string $contact): self
+    {
+        $this->telephone = $contact;
+        return $this;
+    }
+
+    /**
+     * Alias pour setUuid (utilisé dans SecurityManager avec setCountryId)
+     * Conservé pour compatibilité, peut être supprimé après refactoring complet.
+     */
+    public function setCountryId(?string $uuid): self
+    {
+        $this->uuid = $uuid;
+        return $this;
+    }
+
+    /**
+     * Alias pour la compatibilité avec l'appel setIsFirst() dans SecurityManager
+     */
+    public function setIsFirst(bool $isFirst): self
+    {
+        $this->isFirstUser = $isFirst;
+        return $this;
     }
 }

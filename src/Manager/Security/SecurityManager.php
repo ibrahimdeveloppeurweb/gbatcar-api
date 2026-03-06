@@ -2,7 +2,6 @@
 
 namespace App\Manager\Security;
 
-use App\Utils\Fonctions;
 use App\Utils\Constants;
 use App\Entity\Admin\User;
 use App\Utils\TypeVariable;
@@ -34,15 +33,9 @@ class SecurityManager
     private $username;
     private $jwtEncoder;
     private $isFirstUser;
-    private $securitySms;
     private $refreshToken;
     private $userRepository;
-    private $securityMailing;
     private $passwordEncoder;
-    private $ownerRepository;
-    private $tenantRepository;
-    private $settingRepository;
-    private $customerRepository;
     private $refreshTokenRepository;
     public function __construct(
         JwtEncoder $encoder,
@@ -52,7 +45,8 @@ class SecurityManager
         TokenStorageInterface $tokenStorage,
         UserPasswordEncoderInterface $passwordEncoder,
         RefreshTokenRepository $refreshTokenRepository
-    ) {
+        )
+    {
         $this->em = $em;
         $this->encoder = $encoder;
         $this->jwtEncoder = $jwtEncoder;
@@ -72,133 +66,105 @@ class SecurityManager
     public function checkCredential(Request $request)
     {
         $body = json_decode($request->getContent(), true);
-       
+
         if (isset($body['type']) && !$this->isPlateform($body['type'])) {
             throw new ExceptionApi(
                 'Accès refusé',
-                ['msg' => "Vous êtes pas autorisé à avoir accès à cette plateforme."],
+            ['msg' => "Vous êtes pas autorisé à avoir accès à cette plateforme."],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
         if (!isset($body['username']) && !isset($body['password'])) {
             throw new ExceptionApi(
                 "L'email et le mot de passe sont obligatoire.",
-                ['msg' => "L'email et le mot de passe sont obligatoire."],
+            ['msg' => "L'email et le mot de passe sont obligatoire."],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
         if (!isset($body['username'])) {
             throw new ExceptionApi(
                 "L'email est obligatoire",
-                ['msg' => "L'email est obligatoire."],
+            ['msg' => "L'email est obligatoire."],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
         $username = $body['username'];
         if (!isset($body['password'])) {
             throw new ExceptionApi(
                 'Le password est obligatoire.',
-                ['msg' => 'Le password est obligatoire.'],
+            ['msg' => 'Le password est obligatoire.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
         $password = $body['password'];
-      
+
         try {
             $user = $this->userRepository->findOneBy(['username' => $username]);
-            
-        } catch (NonUniqueResultException $e) {
+
+        }
+        catch (NonUniqueResultException $e) {
             $user = null;
         }
- 
+
         if (!$user) {
             throw new ExceptionApi(
                 'Cet utilisateur est introuvable',
-                ['msg' => "Cet utilisateur est introuvable"],
+            ['msg' => "Cet utilisateur est introuvable"],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
-    
+
         $isValid = $this->passwordEncoder->isPasswordValid($user, $password);
         if (!$isValid) {
             throw new ExceptionApi(
                 'Accès incorrectes.',
-                ['msg' => ['Le mot de passe est incorrect.']],
+            ['msg' => ['Le mot de passe est incorrect.']],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
-     
+
         if ($user->isLocked()) {
             throw new ExceptionApi(
                 'Accès refusé',
-                ['msg' => ["Le compte de cet utilisateur n'est pas active."]],
+            ['msg' => ["Le compte de cet utilisateur est bloqué. Contactez l'administrateur."]],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
-            //Envoi de mail
-          //  $this->securityMailing->disabled($user);
-          //  $this->securitySms->disabled($user);
+                );
         }
         if (!$user->isEnabled()) {
             throw new ExceptionApi(
                 'Accès refusé',
-                ['msg' => ["Le compte de cet utilisateur n'est pas validé."]],
+            ['msg' => ["Le compte de cet utilisateur n'est pas encore validé. Contactez l'administrateur."]],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
-           
-            //Envoi de mail
-           // $this->securityMailing->enabled($user);
-           // $this->securitySms->enabled($user);
+                );
         }
-      
-        //On verifie les autorisation d'acces ADMIN
-        if ($this->isPlateform($body['type']) && $body['type'] === 'ADMIN' && Constants::USER_ROLES[$body['type']] !== $user->getRoles()[0]) {
+
+        // Vérifier les autorisations d'accès plateforme ADMIN (backoffice web)
+        // Accès autorisé : ROLE_ADMIN et ROLE_MANAGER
+        // Accès refusé : ROLE_CLIENT (application mobile uniquement)
+        if (isset($body['type']) && $body['type'] === Constants::PLATFORMS['ADMIN']) {
+            $allowedRoles = [Constants::USER_ROLES['ADMIN'], Constants::USER_ROLES['MANAGER']];
+            if (!in_array($user->getRoles()[0], $allowedRoles, true)) {
+                throw new ExceptionApi(
+                    'Accès refusé',
+                ['msg' => ["Cet utilisateur n'a pas accès à la plateforme d'administration GbatCar."]],
+                    Response::HTTP_UNPROCESSABLE_ENTITY
+                    );
+            }
+        }
+
+        // Vérifier les autorisations d'accès MOBILE (application cliente)
+        // Accès autorisé : ROLE_CLIENT uniquement
+        if (isset($body['type']) && $body['type'] === Constants::PLATFORMS['MOBILE'] && Constants::USER_ROLES['CLIENT'] !== $user->getRoles()[0]) {
             throw new ExceptionApi(
                 'Accès refusé',
-                ['msg' => ["Cet utilisateur n'a pas accès à cette plateforme."]],
+            ['msg' => ["Cet utilisateur n'a pas accès à l'application mobile GbatCar."]],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
-        }
-        //On verifie les autorisation d'acces AGENCY
-        if ($this->isPlateform($body['type']) && $body['type'] === 'AGENCY' && Constants::USER_ROLES[$body['type']] !== $user->getRoles()[0]) {
-            throw new ExceptionApi(
-                'Accès refusé',
-                ['msg' => ["Cet utilisateur n'a pas accès à cette plateforme."]],
-                Response::HTTP_UNPROCESSABLE_ENTITY
-            );
-        }
-      
-        //On verifie les autorisation d'acces MOBILE
-        if (
-            $this->isPlateform($body['type']) &&
-            ($body['type'] === 'MOBILE') &&
-            (Constants::USER_ROLES["AGENCY"] !== $user->getRoles()[0])
-        ) {
-            throw new ExceptionApi(
-                'Accès refusé',
-                ['msg' => ["Cet utilisateur n'a pas accès à cette plateforme."]],
-                Response::HTTP_UNPROCESSABLE_ENTITY
-            );
-        }
-        //On verifie les autorisation d'acces SITE
-        if (
-            $this->isPlateform($body['type']) &&
-            $body['type'] === 'SITE' &&
-            ($user->getType() === 'ADMIN' || $user->getType() === 'USER') &&
-            $this->isPlateform($body['type']) &&
-            $body['type'] === 'SITE' &&
-            ($user->getType() === 'ADMIN' || $user->getType() === 'USER') &&
-            $user->getIsFirst() === false
-        ) {
-            throw new ExceptionApi(
-                'Accès refusé',
-                ['msg' => ["En tant qu'utilisateur, vous n'avez pas droit à cette plateforme."]],
-                Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
 
         $this->username = $user->getUsername();
         $this->isFirstUser = $user->getIsFirst();
-       $this->roles = $user->getRoles()[0];
+        $this->roles = $user->getRoles()[0];
 
         /*
          * Générons un nouveau token de rafraichissement
@@ -206,8 +172,6 @@ class SecurityManager
         $refreshToken = $user->generateRefreshToken();
         $this->em->persist($refreshToken);
         $this->em->flush();
-
-        //Envoi de mail
 
         $this->refreshToken = (string)$refreshToken->getId();
         return $this;
@@ -221,20 +185,20 @@ class SecurityManager
      */
     public function forgot(object $data): ?User
     {
-        if(isset($data->email) && TypeVariable::is_not_null($data->email) === false){
+        if (isset($data->email) && TypeVariable::is_not_null($data->email) === false) {
             throw new ExceptionApi(
                 'Veuillez renseigner correctement le nom d\'utilisateur.',
-                ['msg' => 'Veuillez renseigner correctement le nom d\'utilisateur.'],
+            ['msg' => 'Veuillez renseigner correctement le nom d\'utilisateur.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
         $user = $this->userRepository->findOneBy(['username' => $data->email]);
         if (!$user) {
             throw new ExceptionApi(
                 'Il n\'existe aucun utilisateur avec ces identifiant.',
-                ['msg' => 'Il n\'existe aucun utilisateur avec ces identifiant.'],
+            ['msg' => 'Il n\'existe aucun utilisateur avec ces identifiant.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
         $password = FonctionUtil::password(8);
         $user
@@ -272,9 +236,10 @@ class SecurityManager
             $extractor = new AuthorizationHeaderTokenExtractor('Bearer', 'Authorization');
             $token = $extractor->extract($request);
             $this->encoder->decode($token);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             throw new ExceptionApi('Votre session précédente a expirée.',
-                ['msg' => 'Votre session précédente a expirée.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            ['msg' => 'Votre session précédente a expirée.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         return $token;
     }
@@ -286,37 +251,30 @@ class SecurityManager
     {
         try {
             $token = $this->jwtEncoder->encode(['username' => $this->username]);
-        } catch (JWTEncodeFailureException $e) {
+        }
+        catch (JWTEncodeFailureException $e) {
             $token = null;
         }
-        // /** @var Setting $setting */
-        // $setting = $this->settingRepository->findOneByAgency(null);
-        // $prcFraisOrange = $setting->getPrcFraisOrange();
-        // $prcFraisMtn = $setting->getPrcFraisMtn();
-        // $prcFraisMoov = $setting->getPrcFraisMoov();
-        // $prcFraisWave = $setting->getPrcFraisWave();
-        // $prcFraisDebitcard = $setting->getPrcFraisDebitcard();
         $user = $this->userRepository->findOneBy(['username' => $this->username]);
-       // $subscribe = count($user->getAgency() ? $user->getAgency()->getSubscriptions() : []) > 0 ? true : false;
-      
-         $userModel = new UserModel();
+
+        $userModel = new UserModel();
         $userModel
-            ->setNom($user->getLibelle())
-            ->setCivilite($user->getCivilite())
-            ->setSexe($user->getSexe())
+            ->setFirstname($user->getPrenom())
+            ->setName($user->getNom())
+            ->setIsFirst($user->getIsFirst())
             ->setPhoto($user->getPhotoSrc())
-            ->setAgencyKey($user->getAgency() ? $user->getAgency()->getUuid() : null)
-            ->setAgencyName($user->getAgency() ? $user->getAgency()->getNom() : null)
-            // ->setAutorisation($user->getAgency() !== null ? $user->getAgency()->getAutorisation()  : null)
+            ->setContact($user->getContact())
+            ->setEmail($user->getEmail())
+            ->setCountryId($user->getUuid())
+            ->setUsername($user->getUsername())
             ->setPermissions($user->getPermissions())
             ->setToken($token)
-             ->setRole($this->roles)
+            ->setRole($this->roles)
             ->setTelephone($user->getContact())
             ->setEmail($user->getEmail())
             ->setIsFirstUser($this->isFirstUser)
             ->setUuid($user->getUuid())
             ->setLastLogin($user->getLastLogin());
-            // ->setPath($user->getPath());
 
         $user->setIsOnline(true);
         $this->em->persist($user);
@@ -344,7 +302,8 @@ class SecurityManager
     {
         try {
             $credential = $this->jwtEncoder->decode($token);
-        } catch (JWTDecodeFailureException $e) {
+        }
+        catch (JWTDecodeFailureException $e) {
             $credential = null;
         }
         $user = null;
@@ -364,66 +323,19 @@ class SecurityManager
      */
     public function editPassword(object $data, User $user): User
     {
-       $this->checkRequirements($data, $user, 'edit');
-       $user->setPassword($this->passwordEncoder->encodePassword($user, $data->new));
+        $this->checkRequirements($data, $user, 'edit');
+        $user->setPassword($this->passwordEncoder->encodePassword($user, $data->new));
         $this->em->persist($user);
         $this->em->flush();
         return $user;
     }
 
-    // /**
-    //  * Reinitialiser les accès utilisateur
-    //  * @param object $data
-    //  * @return User
-    //  * @throws ExceptionApi
-    //  */
-    // public function resetAccess(object $data, ?Agency $agency): User
-    // {
-    //     $tenant = null;
-    //     $customer = null;
-    //     $owner = null;
-    //     if($data->type === 'LOCATAIRE') {
-    //         /** @var Tenant $tenant */
-    //         $tenant = $this->tenantRepository->findOneByUuid($data->user);
-    //     } elseif ($data->type === 'CLIENT') {
-    //         /** @var Customer $customer */
-    //         $customer = $this->customerRepository->findOneByUuid($data->user);
-    //     } elseif ($data->type === 'PROPRIETAIRE') {
-    //         /** @var Owner $owner */
-    //         $owner = $this->ownerRepository->findOneByUuid($data->user);
-    //     }
-    //     /** @var User $user */
-    //     $user = $this->userRepository->findOneBy(['tenant' => $tenant, 'customer' => $customer, 'owner' => $owner]);
-    //     if(!$user) {
-    //         throw new ExceptionApi("L'utilisateur est introuvable.",
-    //             ['msg' => "L'utilisateur est introuvable."], Response::HTTP_UNPROCESSABLE_ENTITY
-    //         );
-    //     }
-    //     /** @var User $existe */
-    //     $existe = $this->userRepository->findOneByUsername($data->username);
-    //     if ($existe && $existe->getId() !== $user->getId()) {
-    //         throw new ExceptionApi("Ce nom d'utilisateur est déjà associé à un compte.",
-    //             ["msg" => "Ce nom d'utilisateur est déjà associé à un compte."],
-    //             Response::HTTP_UNPROCESSABLE_ENTITY
-    //         );
-    //     }
-    //     $user
-    //         ->setUsername($data->username)
-    //         ->setPassword($this->passwordEncoder->encodePassword($user, $data->password))
-    //         ->setIsEnabled(true)
-    //     ;
-    //     $this->em->persist($user);
-    //     $this->em->flush();
-    //     $this->securityMailing->userCreate($user, $data->password, $agency);
-    //     return $user;
-    // }
-
-    // /**
-    //  * Reinitialiser un mot de passe
-    //  * @param object $data
-    //  * @return User
-    //  * @throws ExceptionApi
-    //  */
+    /**
+     * Réinitialiser un mot de passe (par un administrateur)
+     * @param object $data
+     * @return User
+     * @throws ExceptionApi
+     */
     public function resetPassword(object $data): User
     {
         $user = $this->userRepository->findOneByUuid($data->user);
@@ -431,33 +343,26 @@ class SecurityManager
         $user->setPassword($this->passwordEncoder->encodePassword($user, $data->new));
         $this->em->persist($user);
         $this->em->flush();
-        $this->securityMailing->resetPassword($user, $data->new);
         return $user;
     }
 
-    // /**
-    //  * @param User $user
-    //  * @return void
-    //  */
-    // public function changeIp(User $user)
-    // {
-    //     $ip = '';
-    //     if ($user->getCurrentAdresse()) {
-    //         $user->setCurrentAdresse($ip);
-    //         $user->setLastAdresse($ip);
-    //         $this->em->persist($user);
-    //     } else {
-    //         if ($user->getCurrentAdresse() !== $ip) {
-    //             $user->setlastAdresse($user->getCurrentAdresse());
-    //             $user->setCurrentAdresse($ip);
-    //             $this->em->persist($user);
-    //         }
-    //     }
-    //     $this->em->flush();
-    //     // Envoi de mail
-    //     $this->securityMailing->changeIp($user);
-    //     $this->securitySms->changeIp($user);
-    // }
+    /**
+     * Vérifier l'accès à une plateforme GbatCar
+     * @param array $data
+     * @param User $user
+     * @return bool
+     */
+    public function checkPlatform(array $data, User $user)
+    {
+        $platform = isset($data['platform']) ? $data['platform'] : null;
+        if ($platform === Constants::PLATFORMS['ADMIN']) {
+            return $user->getRoles()[0] === Constants::USER_ROLES['ADMIN'];
+        }
+        if ($platform === Constants::PLATFORMS['MOBILE']) {
+            return $user->getRoles()[0] === Constants::USER_ROLES['CLIENT'];
+        }
+        return false;
+    }
 
     /**
      * @param object $data
@@ -475,37 +380,34 @@ class SecurityManager
             if (!$isValid) {
                 throw new ExceptionApi(
                     "L'ancien mot de passe est incorrect.",
-                    ['msg' => "L'ancien mot de passe est incorrect."],
+                ['msg' => "L'ancien mot de passe est incorrect."],
                     Response::HTTP_UNPROCESSABLE_ENTITY
-                );
+                    );
             }
             if ($data->new !== $data->confirme) {
                 throw new ExceptionApi(
                     'Les mots de passes ne correspondent pas.',
-                    ['msg' => 'Les mots de passes ne correspondent pas.'],
+                ['msg' => 'Les mots de passes ne correspondent pas.'],
                     Response::HTTP_UNPROCESSABLE_ENTITY
-                );
+                    );
             }
         }
         if (!$user) {
             throw new ExceptionApi(
                 "Cet utilisateur est introuvable.",
-                ['msg' => "Cet utilisateur est introuvable"],
+            ['msg' => "Cet utilisateur est introuvable"],
                 Response::HTTP_UNPROCESSABLE_ENTITY
-            );
+                );
         }
     }
 
     /**
-     * Verifier l'acces a la plateform
+     * Vérifier si une plateforme GbatCar est valide
      * @param string $plateform
-     * @return boolean
+     * @return bool
      */
     public function isPlateform(string $plateform): bool
     {
-        if ($plateform !== 'ADMIN' && $plateform !== 'AGENCY' && $plateform !== 'MOBILE' && $plateform !== 'SITE' && $plateform !== 'PROSPECT') {
-            return false;
-        }
-        return true;
+        return in_array($plateform, array_values(Constants::PLATFORMS), true);
     }
 }

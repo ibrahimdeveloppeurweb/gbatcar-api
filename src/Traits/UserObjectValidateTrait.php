@@ -5,12 +5,11 @@ namespace App\Traits;
 use App\Entity\Admin\User;
 use Symfony\Component\Serializer\Annotation\Groups;
 
-trait  UserObjectValidateTrait
+trait UserObjectValidateTrait
 {
     /**
      * @ORM\Column(type="datetime", nullable=true)
-     * @Groups({"agency", "contract", "mandate", "payment", "inventory", "renew", "renewM", "terminate", "repayment",
-     *  "mutate", "paymentC", "fund", "paymentB", "subscription", "paymentR", "spent", "funding", "paymentF", "terminateM"})
+     * @Groups({"user", "admin"})
      */
     private $validateAt;
 
@@ -39,13 +38,12 @@ trait  UserObjectValidateTrait
     public function setValidateBy(?User $validateBy): self
     {
         $this->validateBy = $validateBy;
-        
+
         return $this;
     }
 
     /**
-     * @Groups({"agency", "contract", "mandate", "payment", "inventory", "renew", "renewM", "terminate", "repayment",
-     *  "mutate", "paymentC", "fund", "paymentB", "subscription", "paymentR", "spent", "funding", "paymentF", "terminateM"})
+     * @Groups({"user", "admin"})
      */
     public function getValidate(): ?string
     {

@@ -20,7 +20,8 @@ class CommandPath extends Command
         RouterInterface $route,
         EntityManagerInterface $em,
         PathRepository $pathRepository
-    ) {
+        )
+    {
         parent::__construct();
         $this->em = $em;
         $this->route = $route;
@@ -29,7 +30,7 @@ class CommandPath extends Command
 
     protected function configure(): void
     {
-        // ...
+    // ...
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -38,11 +39,11 @@ class CommandPath extends Command
         foreach ($routes as $nom => $route) {
             $options = $route->getOptions();
             if (
-                preg_match('#^/api/private#', $route->getPath()) or
-                preg_match('#^/printer#', $route->getPath()) or
-                preg_match('#^/admin/package#', $route->getPath()) or
-                preg_match('#^/api/auth#', $route->getPath()) or
-                $route->getPath() === "/"
+            preg_match('#^/api/private#', $route->getPath()) or
+            preg_match('#^/printer#', $route->getPath()) or
+            preg_match('#^/admin/package#', $route->getPath()) or
+            preg_match('#^/api/auth#', $route->getPath()) or
+            $route->getPath() === "/"
             ) {
                 $description = (isset($options["description"])) ? $options["description"] : null;
                 $permission = (isset($options["permission"])) ? $options["permission"] : null;
@@ -55,41 +56,27 @@ class CommandPath extends Command
                     $path->setPermission($permission);
 
                     if (
-                        preg_match('#^/api/private/trustee#', $route->getPath()) ||
-                        preg_match('#^/api/private/budget#', $route->getPath()) ||
-                        preg_match('#^/api/private/accounting#', $route->getPath()) ||
-                        preg_match('#^/api/private/agency#', $route->getPath()) ||
-                        preg_match('#^/api/private/trustee#', $route->getPath()) ||
-                        preg_match('#^/api/private/budget#', $route->getPath()) ||
-                        preg_match('#^/api/private/accounting#', $route->getPath()) ||
-                        preg_match('#^/printer/agency#', $route->getPath()) ||
-                        preg_match('#^/api/auth#', $route->getPath())
+                    preg_match('#^/api/private/client#', $route->getPath()) ||
+                    preg_match('#^/printer/client#', $route->getPath()) ||
+                    preg_match('#^/api/auth#', $route->getPath())
                     ) {
                         $path->setType(Path::TYPE['CLIENT']);
-                    } elseif (
-                        preg_match('#^/api/private/admin#', $route->getPath()) ||
-                        preg_match('#^/printer/admin#', $route->getPath()) ||
-                        preg_match('#^/admin#', $route->getPath())
+                    }
+                    elseif (
+                    preg_match('#^/api/private/admin#', $route->getPath()) ||
+                    preg_match('#^/printer/admin#', $route->getPath()) ||
+                    preg_match('#^/admin#', $route->getPath())
                     ) {
                         $path->setType(Path::TYPE['ADMIN']);
-                    } else {
-                        if (
-                            preg_match('#^/api/private/extra/setting/agency#', $route->getPath()) ||
-                            preg_match('#^/api/private/extra/setting/mail/agency#', $route->getPath()) ||
-                            preg_match('#^/api/private/extra/setting/sms/agency#', $route->getPath()) ||
-                            preg_match('#^/api/private/extra/setting/template/agency#', $route->getPath())
-                        ) {
-                            $path->setType(Path::TYPE['CLIENT']);
-                        } elseif (
-                            preg_match('#^/api/private/extra/setting/admin#', $route->getPath()) ||
-                            preg_match('#^/api/private/extra/setting/mail/admin#', $route->getPath()) ||
-                            preg_match('#^/api/private/extra/setting/sms/admin#', $route->getPath()) ||
-                            preg_match('#^/api/private/extra/setting/template/admin#', $route->getPath())
-                        ) {
-                            $path->setType(Path::TYPE['ADMIN']);
-                        } else {
-                            $path->setType(Path::TYPE['EXTRA']);
-                        }
+                    }
+                    elseif (
+                    preg_match('#^/api/private/extra#', $route->getPath())
+                    ) {
+                        $path->setType(Path::TYPE['EXTRA']);
+                    }
+                    else {
+                        // Valeur par défaut si aucun filtre ne correspond exactement, mais qu'elle est dans /api/private
+                        $path->setType(Path::TYPE['CLIENT']);
                     }
                     $this->em->persist($path);
                     $this->em->flush();
