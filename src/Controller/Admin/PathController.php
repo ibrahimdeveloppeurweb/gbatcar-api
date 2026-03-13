@@ -22,7 +22,8 @@ class PathController extends AbstractController
     public function __construct(
         PathRepository $pathRepository,
         PathManager $pathManager
-    ) {
+        )
+    {
         $this->pathRepository = $pathRepository;
         $this->pathManager = $pathManager;
     }
@@ -38,7 +39,7 @@ class PathController extends AbstractController
             $paths = $this->pathRepository->findBy(['type' => Path::TYPE[$data->type]]);
             return $this->json($paths, 200, [], ['groups' => ['path']]);
         }
-        $paths = $this->pathRepository->findByAll();
+        $paths = $this->pathRepository->findAll();
         return $this->json($paths, 200, [], ['groups' => ['path']]);
     }
 
@@ -46,14 +47,15 @@ class PathController extends AbstractController
      * @Route("/new", name="new_path", methods={"POST"}, 
      * options={"description"="Ajouter une route", "permission"="PATH:NEW"})
      */
-    public function new(Request $request)
+    public function new (Request $request)
     {
         try {
             $data = \json_decode($request->getContent());
             $path = $this->pathManager->create($data);
-            $response = (new JsonHelper($path, 'Route ' . $path->getNom() . ' ajouter avec succès','success', 200, []))->serialize();
-        } catch (ExceptionApi $e) { 
-            $response = (new JsonHelper(null, $e->getMessage(),'bad_request', $e->getCode(), $e->getErrors()))->serialize();
+            $response = (new JsonHelper($path, 'Route ' . $path->getNom() . ' ajouter avec succès', 'success', 200, []))->serialize();
+        }
+        catch (ExceptionApi $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ['service']]);
         }
         return $this->json($response, 200, [], ['groups' => ['service']]);
@@ -68,12 +70,13 @@ class PathController extends AbstractController
         try {
             $data = \json_decode($request->getContent());
             $path = $this->pathManager->update($path, $data);
-            $response = (new JsonHelper($path, 'Route' . $path->getNom() . ' a été modifié avec succès','success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
-            $response = (new JsonHelper(null, $e->getMessage(),'bad_request', $e->getCode(), $e->getErrors()))->serialize();
+            $response = (new JsonHelper($path, 'Route' . $path->getNom() . ' a été modifié avec succès', 'success', 200, []))->serialize();
+        }
+        catch (ExceptionApi $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ['agency']]);
         }
-        
+
         return $this->json($response, 200, [], ['groups' => ['agency']]);
     }
 
@@ -85,8 +88,9 @@ class PathController extends AbstractController
     {
         try {
             $path = $this->pathManager->delete($path);
-            $response = (new JsonHelper($path, 'Route '. $path->getNom() .' a été supprimé avec succès', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
+            $response = (new JsonHelper($path, 'Route ' . $path->getNom() . ' a été supprimé avec succès', 'success', 200, []))->serialize();
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ['service']]);
         }
