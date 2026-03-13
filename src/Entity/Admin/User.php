@@ -55,6 +55,18 @@ class User implements UserInterface
     private $civilite;
 
     /**
+     * @ORM\Column(type="string", length=50, nullable=true)
+     * @Groups({"user", "admin"})
+     */
+    private $status;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"user", "admin"})
+     */
+    private $avatar;
+
+    /**
      * @ORM\Column(type="string", length=255, nullable=true)
      */
     private $nom;
@@ -447,5 +459,39 @@ class User implements UserInterface
         $refreshToken->setCreatedAt($now);
 
         return $refreshToken;
+    }
+
+    public function getStatus(): ?string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(?string $status): self
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    public function getAvatar(): ?string
+    {
+        return $this->avatar;
+    }
+
+    public function setAvatar(?string $avatar): self
+    {
+        $this->avatar = $avatar;
+
+        return $this;
+    }
+
+    public function getIsLocked(): ?bool
+    {
+        return $this->isLocked;
+    }
+
+    public function getIsEnabled(): ?bool
+    {
+        return $this->isEnabled;
     }
 }
