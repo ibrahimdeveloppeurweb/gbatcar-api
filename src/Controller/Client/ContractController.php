@@ -102,4 +102,13 @@ class ContractController extends AbstractController
     {
     // To be implemented
     }
+
+    /**
+     * @Route("/late", name="contract_late_list", methods={"GET"}, 
+     * options={"description"="Afficher le suivi des retards", "permission"="CONTRACT:LATE:LIST"})
+     */
+    public function getLateList(Request $request)
+    {
+        return $this->json(['data' => []], 200);
+    }
 }

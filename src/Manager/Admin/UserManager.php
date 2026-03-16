@@ -103,19 +103,23 @@ class UserManager
     public function img(object $data): User
     {
         $user = $this->userRepository->findOneByUuid($data->user);
-        if (count($data->files) === 0) {
-            if ($user->getPhoto()) {
-                $src = $user->getPhoto()->getSrc();
-                $user->setPhoto(null);
-                $file = $this->fileRepository->findOneBySrc($src);
-                $path = __DIR__ . '/../../../public/' . $user->getFolderPath() . $src;
-                if (file_exists($path))
-                    @unlink($path);
-                $this->em->remove($file);
+        if (isset($data->files)) {
+            if (count($data->files) === 0) {
+                if ($user->getPhoto()) {
+                    $src = $user->getPhoto()->getSrc();
+                    $user->setPhoto(null);
+                    $file = $this->fileRepository->findOneBySrc($src);
+                    $path = __DIR__ . '/../../../public/' . $user->getFolderPath() . $src;
+                    if (file_exists($path))
+                        @unlink($path);
+                    if ($file) {
+                        $this->em->remove($file);
+                    }
+                }
             }
-        }
-        foreach ($data->files as $item) {
-            $this->uploaderManager->base64($item, $user);
+            foreach ($data->files as $item) {
+                $this->uploaderManager->base64($item, $user);
+            }
         }
 
         $this->em->persist($user);
@@ -146,6 +150,7 @@ class UserManager
             $role = $this->roleRepository->findOneByUuid($item->uuid);
             $user->addDroit($role);
         }
+        $user->setPassword($this->passwordEncoder->encodePassword($user, $data->password));
         $this->add($user, $data);
         $this->em->persist($user);
         $this->upload($data, $user);
@@ -185,7 +190,8 @@ class UserManager
     {
         /** @var User $user */
         $user
-            ->setNom($data->nom)
+            ->setNom(isset($data->nom) ? $data->nom : (isset($data->lastName) ? $data->lastName : null))
+            ->setPrenom(isset($data->prenom) ? $data->prenom : (isset($data->firstName) ? $data->firstName : null))
             ->setTelephone($data->contact)
             ->setCivilite(isset($data->civilite) ? $data->civilite : null)
             ->setEmail($data->email)
@@ -200,19 +206,23 @@ class UserManager
      */
     public function upload(object $data, $entity)
     {
-        if (count($data->files) === 0) {
-            if ($entity->getPhoto()) {
-                $src = $entity->getPhoto()->getSrc();
-                $entity->setPhoto(null);
-                $file = $this->fileRepository->findOneBySrc($src);
-                $path = __DIR__ . '/../../../public/' . $entity->getFolderPath() . $src;
-                if (file_exists($path))
-                    @unlink($path);
-                $this->em->remove($file);
+        if (isset($data->files)) {
+            if (count($data->files) === 0) {
+                if ($entity->getPhoto()) {
+                    $src = $entity->getPhoto()->getSrc();
+                    $entity->setPhoto(null);
+                    $file = $this->fileRepository->findOneBySrc($src);
+                    $path = __DIR__ . '/../../../public/' . $entity->getFolderPath() . $src;
+                    if (file_exists($path))
+                        @unlink($path);
+                    if ($file) {
+                        $this->em->remove($file);
+                    }
+                }
             }
-        }
-        foreach ($data->files as $item) {
-            $this->uploaderManager->create($item, $entity);
+            foreach ($data->files as $item) {
+                $this->uploaderManager->create($item, $entity);
+            }
         }
     }
 

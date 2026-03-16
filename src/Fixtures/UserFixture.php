@@ -54,8 +54,11 @@ class UserFixture extends Fixture
             ->setIsFirst(true)
             ;
 
-        // Assignation de toutes les routes ADMIN au rôle
-        $paths = RouteHelper::ADMIN_ROUTE($pathsRow);
+        // Assignation de toutes les routes ADMIN et des MENUS au rôle
+        $apiPaths = RouteHelper::ADMIN_ROUTE($pathsRow);
+        $menuPaths = RouteHelper::MENU_ROUTE($pathsRow);
+        $paths = array_merge($apiPaths, $menuPaths);
+        
         foreach ($paths as $path) {
             $path->addRole($role);
             $manager->persist($path);

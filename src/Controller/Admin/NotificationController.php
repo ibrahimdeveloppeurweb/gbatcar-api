@@ -1,19 +1,18 @@
 <?php
 
-namespace App\Controller\Extra;
+namespace App\Controller\Admin;
 
 use App\Helpers\JsonHelper;
 use App\Exception\ExceptionApi;
 use App\Manager\Extra\NotificationSettingManager;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
 /**
- * @Route(path="/api/private/extra/settings")
+ * @Route(path="/api/private/admin/notifications")
  */
-class NotificationSettingController extends AbstractController
+class NotificationController extends AbstractController
 {
     private $settingManager;
 
@@ -23,8 +22,17 @@ class NotificationSettingController extends AbstractController
     }
 
     /**
-     * @Route("/notifications", name="get_notification_settings", methods={"GET"}, 
-     * options={"description"="Récupérer la configuration des notifications", "permission"="SETTING:READ"})
+     * @Route("", name="admin_notifications_list", methods={"GET"}, 
+     * options={"description"="Afficher les notifications systèmes", "permission"="NOTIFICATION:LIST"})
+     */
+    public function getNotifications(Request $request)
+    {
+        return $this->json(['data' => []], 200);
+    }
+
+    /**
+     * @Route("/settings", name="get_notification_settings", methods={"GET"}, 
+     * options={"description"="Récupérer la configuration des notifications", "permission"="NOTIFICATION:SETTINGS_READ"})
      */
     public function getSettings()
     {
@@ -40,8 +48,8 @@ class NotificationSettingController extends AbstractController
     }
 
     /**
-     * @Route("/notifications/update", name="update_notification_settings", methods={"POST"},
-     * options={"description"="Mettre à jour la configuration des notifications", "permission"="SETTING:EDIT"})
+     * @Route("/settings/update", name="update_notification_settings", methods={"POST", "PUT"},
+     * options={"description"="Mettre à jour la configuration des notifications", "permission"="NOTIFICATION:SETTINGS_EDIT"})
      */
     public function update(Request $request)
     {

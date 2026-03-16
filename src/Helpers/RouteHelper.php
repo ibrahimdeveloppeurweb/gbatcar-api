@@ -234,4 +234,14 @@ class RouteHelper
             '#^/api/private/extra#',
         ]);
     }
+
+    /**
+     * Toutes les routes liées au menu frontend (MenuData).
+     */
+    public static function MENU_ROUTE(array $paths): array
+    {
+        return array_values(array_filter($paths, function ($path) {
+            return strpos($path->getNom(), 'MENU_') === 0;
+        }));
+    }
 }

@@ -60,6 +60,14 @@ class Role
     private $users;
 
     /**
+     * @Groups({"role"})
+     */
+    public function getUsersCount(): int
+    {
+        return $this->users ? $this->users->count() : 0;
+    }
+
+    /**
      * @ORM\Column(type="boolean", nullable=true)
      */
     private $isFirst;

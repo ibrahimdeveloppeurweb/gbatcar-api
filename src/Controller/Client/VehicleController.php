@@ -4,6 +4,7 @@ namespace App\Controller\Client;
 
 use App\Manager\Client\VehicleManager;
 use App\Repository\Client\VehicleRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -15,14 +16,17 @@ class VehicleController extends AbstractController
 {
     private $vehicleRepository;
     private $vehicleManager;
+    private $em;
 
     public function __construct(
         VehicleRepository $vehicleRepository,
-        VehicleManager $vehicleManager
+        VehicleManager $vehicleManager,
+        EntityManagerInterface $em
         )
     {
         $this->vehicleRepository = $vehicleRepository;
         $this->vehicleManager = $vehicleManager;
+        $this->em = $em;
     }
 
     /**
@@ -41,7 +45,16 @@ class VehicleController extends AbstractController
      */
     public function new (Request $request)
     {
-    // To be implemented with VehicleManager
+        // Supporte JSON et multipart/form-data
+        $raw = $request->getContent();
+        $data = $raw ? json_decode($raw) : (object) $request->request->all();
+        if (!$data) $data = new \stdClass();
+        try {
+            $vehicle = $this->vehicleManager->create($data, $request);
+            return $this->json($vehicle, 201, [], ['groups' => ['vehicle']]);
+        } catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la création du véhicule.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -73,7 +86,15 @@ class VehicleController extends AbstractController
      */
     public function edit(Request $request, $uuid)
     {
-    // To be implemented with VehicleManager
+        $raw = $request->getContent();
+        $data = $raw ? json_decode($raw) : (object) $request->request->all();
+        if (!$data) $data = new \stdClass();
+        try {
+            $vehicle = $this->vehicleManager->update($uuid, $data, $request);
+            return $this->json($vehicle, 200, [], ['groups' => ['vehicle']]);
+        } catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la modification du véhicule.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -82,7 +103,16 @@ class VehicleController extends AbstractController
      */
     public function delete($uuid)
     {
-    // To be implemented with VehicleManager
+        $vehicle = $this->vehicleRepository->findOneByUuid($uuid);
+        if (!$vehicle) {
+            return $this->json(['message' => 'Véhicule introuvable.'], 404);
+        }
+        try {
+            $this->vehicleManager->delete($vehicle);
+            return $this->json(['message' => 'Véhicule supprimé avec succès.'], 200);
+        } catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la suppression.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -101,5 +131,162 @@ class VehicleController extends AbstractController
     public function changeStatus(Request $request, $uuid)
     {
     // To be implemented
+    }
+
+    /**
+     * @Route("/catalog", name="vehicle_catalog_list", methods={"GET"}, 
+     * options={"description"="Liste du catalogue de véhicules", "permission"="VEHICLE:CATALOG:LIST"})
+     */
+    public function getCatalog(Request $request)
+    {
+        $data = (object) $request->query->all();
+        $items = $this->vehicleRepository->findCatalogByFilters($data);
+        return $this->json(['data' => $items], 200, [], ['groups' => ["vehicle"]]);
+    }
+
+    /**
+     * @Route("/catalog/new", name="vehicle_catalog_new", methods={"POST"}, 
+     * options={"description"="Ajouter un véhicule au catalogue", "permission"="VEHICLE:CATALOG:NEW"})
+     */
+    public function addCatalog(Request $request)
+    {
+        return $this->json(['message' => 'Created'], 201);
+    }
+
+    /**
+     * @Route("/compliance", name="vehicle_compliance_list", methods={"GET"}, 
+     * options={"description"="Afficher les véhicules en visite et conformité", "permission"="VEHICLE:COMPLIANCE:LIST"})
+     */
+    public function getComplianceList(Request $request)
+    {
+        return $this->json(['data' => []], 200);
+    }
+
+    /**
+     * @Route("/brand-images/{brand}", name="vehicle_brand_images_list", methods={"GET"}, 
+     * options={"description"="Lister les images par marque", "permission"="VEHICLE:BRAND:IMAGES:LIST"})
+     */
+    public function getBrandImages(string $brand)
+    {
+        $brandDir = $this->getParameter('kernel.project_dir') . '/public/uploads/vehicles/brands/' . strtolower(trim($brand));
+        
+        if (!is_dir($brandDir)) {
+            return $this->json(['data' => []], 200);
+        }
+
+        $files = array_diff(scandir($brandDir), array('..', '.'));
+        $images = [];
+        foreach ($files as $file) {
+            $images[] = '/uploads/vehicles/brands/' . strtolower(trim($brand)) . '/' . $file;
+        }
+
+        return $this->json(['data' => array_values($images)], 200);
+    }
+
+    /**
+     * @Route("/brand-images/{brand}", name="vehicle_brand_images_upload", methods={"POST"}, 
+     * options={"description"="Uploader une image pour une marque", "permission"="VEHICLE:BRAND:IMAGES:NEW"})
+     */
+    public function uploadBrandImage(Request $request, string $brand)
+    {
+        $file = $request->files->get('file');
+
+        if (!$file) {
+            return $this->json(['message' => 'Aucun fichier fourni'], 400);
+        }
+
+        $brandDir = $this->getParameter('kernel.project_dir') . '/public/uploads/vehicles/brands/' . strtolower(trim($brand));
+        
+        if (!is_dir($brandDir)) {
+            mkdir($brandDir, 0775, true);
+        }
+
+        $filename = uniqid() . '_' . $file->getClientOriginalName();
+        $file->move($brandDir, $filename);
+
+        $imageUrl = '/uploads/vehicles/brands/' . strtolower(trim($brand)) . '/' . $filename;
+
+        return $this->json([
+            'message' => 'Image uploadée avec succès', 
+            'url' => $imageUrl
+        ], 201);
+    }
+
+    /**
+     * @Route("/{id}/cover-image", name="vehicle_set_cover_image", methods={"PUT"},
+     * options={"description"="Définit une image comme couverture du véhicule", "permission"="VEHICLE:EDIT"})
+     */
+    public function setCoverImage(int $id, Request $request)
+    {
+        $vehicle = $this->vehicleRepository->find($id);
+        if (!$vehicle) {
+            return $this->json(['message' => 'Véhicule non trouvé'], 404);
+        }
+
+        $data = json_decode($request->getContent());
+        if (!$data || !isset($data->photo)) {
+            return $this->json(['message' => 'URL de la photo manquante'], 400);
+        }
+
+        $vehicle->setPhoto($data->photo);
+
+        // Reordonner les photos pour que la couverture soit en première position
+        $photos = $vehicle->getPhotos() ?? [];
+        $targetPhoto = trim($data->photo);
+        
+        $foundKey = false;
+        foreach ($photos as $key => $p) {
+            if (trim($p) === $targetPhoto) {
+                unset($photos[$key]);
+                $foundKey = true;
+                break;
+            }
+        }
+        
+        if ($foundKey) {
+            array_unshift($photos, $data->photo);
+            $vehicle->setPhotos(array_values($photos));
+        }
+
+        $this->em->flush();
+
+        return $this->json(['message' => 'Photo de couverture mise à jour', 'photo' => $data->photo, 'photos' => $vehicle->getPhotos()], 200);
+    }
+
+    /**
+     * @Route("/{id}/photo", name="vehicle_remove_photo", methods={"DELETE"},
+     * options={"description"="Supprime une photo du tableau photos du véhicule", "permission"="VEHICLE:EDIT"})
+     */
+    public function removePhoto(int $id, Request $request)
+    {
+        $vehicle = $this->vehicleRepository->find($id);
+        if (!$vehicle) {
+            return $this->json(['message' => 'Véhicule non trouvé'], 404);
+        }
+
+        // Photo can come from query string (for DELETE) or body
+        $photo = $request->query->get('photo');
+        if (!$photo) {
+            $data = json_decode($request->getContent());
+            $photo = $data?->photo ?? null;
+        }
+
+        if (!$photo) {
+            return $this->json(['message' => 'URL de la photo manquante'], 400);
+        }
+
+        $photos = $vehicle->getPhotos() ?? [];
+        $targetPhoto = trim($photo);
+        $photos = array_values(array_filter($photos, fn($p) => trim($p) !== $targetPhoto));
+        $vehicle->setPhotos($photos);
+
+        // Si c'était aussi la couverture, effacer
+        if (trim((string)$vehicle->getPhoto()) === $targetPhoto) {
+            $vehicle->setPhoto(count($photos) > 0 ? $photos[0] : null);
+        }
+
+        $this->em->flush();
+
+        return $this->json(['message' => 'Photo supprimée', 'photos' => $photos], 200);
     }
 }

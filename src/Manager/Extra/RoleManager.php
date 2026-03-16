@@ -39,12 +39,12 @@ class RoleManager
     }
 
     public function create($data) {
-        $agency = $this->user->getAgency() !== null ? $this->user->getAgency() : null;
+        $agency = null; // Removed this->user->getAgency()
         /** @var Role $check */
-        $check = $this->roleRepository->findOneBy(["nom" => $data->nom, "agency" => $agency]);
+        $check = $this->roleRepository->findOneBy(["nom" => $data->nom]);
         if (!$check) {
             $role = new Role(); 
-            $this->add($data->nom, $data->description, $role, $agency);
+            $this->add($data->nom, $data->description, $role);
             foreach ($data->paths as $item) {
                 $path = $this->pathRepository->findOneByUuid($item->uuid);
                 $role->addPath($path);
@@ -75,7 +75,7 @@ class RoleManager
             $path = $this->pathRepository->findOneByUuid($path->uuid); 
             $role->addPath($path);
         } 
-        $this->add($data->nom, $data->description, $role, $role->getAgency());
+        $this->add($data->nom, $data->description, $role);
         $this->em->persist($role);
         $this->em->flush();
         return $role;
@@ -84,8 +84,7 @@ class RoleManager
     public function delete($uuid)
     {
         $role = $this->roleRepository->findOneByUuid($uuid);
-        $user = $this->userRepository->findBy(['role' => $role]);
-        if ($user) {
+        if (!$role->getUsers()->isEmpty()) {
             throw new ExceptionApi('Vous ne pouvez pas supprimer car ce role a déja éte attribué',
                 ['msg' => 'Vous ne pouvez pas supprimer car ce role a déja éte attribué'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -94,12 +93,11 @@ class RoleManager
         return $role;
     }
 
-    public function add($nom, $description, $role, $agency)
+    public function add($nom, $description, $role)
     {
         $role
             ->setNom($nom)
             ->setDescription($description)
-            ->setAgency($agency !== null ? $agency : null)
         ;  
         return $role;
     }
@@ -110,7 +108,7 @@ class RoleManager
 
         // Role principale de la gestion locative
         $tenant = new Role();
-        $this->add('Gestion locatives', 'Gestion locatives', $tenant, $agency);
+        $this->add('Gestion locatives', 'Gestion locatives', $tenant);
         $paths = RouteHelper::TENANT_ROUTE($pathsRow);
         foreach ($paths as $path) {
             $tenant->addPath($path);
@@ -119,7 +117,7 @@ class RoleManager
         
         // Role restreint de la gestion locative
         $tenantRestricted = new Role();
-        $this->add('Gestion locatives restreint', 'Gestion locatives restreint', $tenantRestricted, $agency);
+        $this->add('Gestion locatives restreint', 'Gestion locatives restreint', $tenantRestricted);
         $paths = RouteHelper::TENANT_RESTRICTED_ROUTE($pathsRow);
         foreach ($paths as $path) {
             $tenantRestricted->addPath($path);
@@ -128,7 +126,7 @@ class RoleManager
 
         // Role principale de la gestion tresorerie
         $treasury = new Role();
-        $this->add('Gestion tresorerie', 'Gestion tresorerie', $treasury, $agency);
+        $this->add('Gestion tresorerie', 'Gestion tresorerie', $treasury);
         $paths = RouteHelper::TREASURY_ROUTE($pathsRow);
         foreach ($paths as $path) {
             $treasury->addPath($path);
@@ -137,7 +135,7 @@ class RoleManager
 
         // Role restreint de la gestion tresorerie
         $treasuryRestricted = new Role();
-        $this->add('Gestion tresorerie restreint', 'Gestion tresorerie restreint', $treasuryRestricted, $agency);
+        $this->add('Gestion tresorerie restreint', 'Gestion tresorerie restreint', $treasuryRestricted);
         $paths = RouteHelper::TREASURY_RESTRICTED_ROUTE($pathsRow);
         foreach ($paths as $path) {
             $treasuryRestricted->addPath($path);
@@ -146,7 +144,7 @@ class RoleManager
 
         // Role principale de la gestion patrimoine
         $patrimoine = new Role();
-        $this->add('Gestion patrimoine', 'Gestion patrimoine', $patrimoine, $agency);
+        $this->add('Gestion patrimoine', 'Gestion patrimoine', $patrimoine);
         $paths = RouteHelper::PATRIMOINE_ROUTE($pathsRow);
         foreach ($paths as $path) {
             $patrimoine->addPath($path);
@@ -155,7 +153,7 @@ class RoleManager
 
         // Role restreint de la gestion patrimoine
         $patrimoineRestricted = new Role();
-        $this->add('Gestion patrimoine restreint', 'Gestion patrimoine restreint', $patrimoineRestricted, $agency);
+        $this->add('Gestion patrimoine restreint', 'Gestion patrimoine restreint', $patrimoineRestricted);
         $paths = RouteHelper::PATRIMOINE_RESTRICTED_ROUTE($pathsRow);
         foreach ($paths as $path) {
             $patrimoineRestricted->addPath($path);
@@ -164,7 +162,7 @@ class RoleManager
 
         // Role principale: Gestion d'acces à toute les route
         $admin = new Role();
-        $this->add('Gestion d\'acces à toute les route', 'Gestion d\'acces à toute les route', $admin, $agency);
+        $this->add('Gestion d\'acces à toute les route', 'Gestion d\'acces à toute les route', $admin);
         $paths = $pathsRow;
         foreach ($paths as $path) {
             $admin
