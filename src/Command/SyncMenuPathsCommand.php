@@ -85,6 +85,7 @@ class SyncMenuPathsCommand extends Command
 
         $path->setChemin($link);
         $path->setLibelle($label); // Le label affiché dans l'UI des permissions
+        $path->setPermission($nom); // Renseigner la permission pour l'API et le frontend
 
         // Lier automatiquement au super-admin s'il existe et n'a pas déjà ce path
         if ($superAdminRole && !$superAdminRole->getPaths()->contains($path)) {

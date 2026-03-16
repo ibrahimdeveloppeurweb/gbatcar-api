@@ -68,11 +68,13 @@ class User implements UserInterface
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"user", "admin"})
      */
     private $nom;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"user", "admin"})
      */
     private $prenom;
 
@@ -97,11 +99,13 @@ class User implements UserInterface
     /**
      * @ORM\Column(type="string", length=255)
      * @Searchable()
+     * @Groups({"user", "admin"})
      */
     private $username;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"user", "admin"})
      */
     private $email;
 
@@ -112,6 +116,7 @@ class User implements UserInterface
 
     /**
      * @ORM\Column(type="boolean")
+     * @Groups({"user", "admin"})
      */
     private $isEnabled = false;
 
@@ -139,6 +144,7 @@ class User implements UserInterface
 
     /**
      * @ORM\ManyToMany(targetEntity=Role::class, inversedBy="users")
+     * @Groups({"user"})
      */
     private $droits;
 

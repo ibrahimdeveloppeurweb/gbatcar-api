@@ -139,6 +139,12 @@ class Vehicle
     private $photo;
 
     /**
+     * @ORM\Column(type="json", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $photos = [];
+
+    /**
      * @ORM\Column(type="date_immutable", nullable=true)
      * @Groups({"vehicle"})
      */
@@ -180,7 +186,69 @@ class Vehicle
      */
     private $prixParJour;
 
+    // --- OFFRE COMMERCIALE ---
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $depositPercentage;
+
+    /**
+     * @ORM\Column(type="integer", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $durationInMonths;
+
+    /**
+     * @ORM\Column(type="boolean", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $includingInsurance = false;
+
+    /**
+     * @ORM\Column(type="boolean", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $includingGPS = false;
+
     // --- RENTABILITÉ ---
+    
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $purchasePrice;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $customsFees;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $transitFees;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $preparationCost;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $gpsInstallationCost;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"vehicle"})
+     */
+    private $otherCosts;
 
     /**
      * @ORM\Column(type="float", nullable=true)
@@ -491,6 +559,18 @@ class Vehicle
         return $this;
     }
 
+    public function getPhotos(): ?array
+    {
+        return $this->photos;
+    }
+
+    public function setPhotos(?array $photos): self
+    {
+        $this->photos = $photos;
+
+        return $this;
+    }
+
     public function getClient(): ?Client
     {
         return $this->client;
@@ -748,4 +828,50 @@ class Vehicle
 
         return $this;
     }
-}
+
+    public function isIncludingInsurance(): ?bool
+    {
+        return $this->includingInsurance;
+    }
+
+    public function setIncludingInsurance(?bool $includingInsurance): self
+    {
+        $this->includingInsurance = $includingInsurance;
+        return $this;
+    }
+
+    public function isIncludingGPS(): ?bool
+    {
+        return $this->includingGPS;
+    }
+
+    public function setIncludingGPS(?bool $includingGPS): self
+    {
+        $this->includingGPS = $includingGPS;
+        return $this;
+    }
+
+    public function getDepositPercentage(): ?float { return $this->depositPercentage; }
+    public function setDepositPercentage(?float $depositPercentage): self { $this->depositPercentage = $depositPercentage; return $this; }
+
+    public function getDurationInMonths(): ?int { return $this->durationInMonths; }
+    public function setDurationInMonths(?int $durationInMonths): self { $this->durationInMonths = $durationInMonths; return $this; }
+
+    public function getPurchasePrice(): ?float { return $this->purchasePrice; }
+    public function setPurchasePrice(?float $purchasePrice): self { $this->purchasePrice = $purchasePrice; return $this; }
+
+    public function getCustomsFees(): ?float { return $this->customsFees; }
+    public function setCustomsFees(?float $customsFees): self { $this->customsFees = $customsFees; return $this; }
+
+    public function getTransitFees(): ?float { return $this->transitFees; }
+    public function setTransitFees(?float $transitFees): self { $this->transitFees = $transitFees; return $this; }
+
+    public function getPreparationCost(): ?float { return $this->preparationCost; }
+    public function setPreparationCost(?float $preparationCost): self { $this->preparationCost = $preparationCost; return $this; }
+
+    public function getGpsInstallationCost(): ?float { return $this->gpsInstallationCost; }
+    public function setGpsInstallationCost(?float $gpsInstallationCost): self { $this->gpsInstallationCost = $gpsInstallationCost; return $this; }
+
+    public function getOtherCosts(): ?float { return $this->otherCosts; }
+    public function setOtherCosts(?float $otherCosts): self { $this->otherCosts = $otherCosts; return $this; }
+}

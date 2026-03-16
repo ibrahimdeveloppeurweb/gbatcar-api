@@ -3,6 +3,7 @@
 namespace App\Repository\Client;
 
 use App\Entity\Client\Vehicle;
+use App\Utils\TypeVariable;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\OptimisticLockException;
 use Doctrine\ORM\ORMException;
@@ -18,9 +19,13 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class VehicleRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
+    /** @var TypeVariable $type */
+    private $type;
+
+    public function __construct(ManagerRegistry $registry, TypeVariable $type)
     {
         parent::__construct($registry, Vehicle::class);
+        $this->type = $type;
     }
 
     /**
@@ -48,6 +53,64 @@ class VehicleRepository extends ServiceEntityRepository
     }
 
     // /**
+    //  * @return Vehicle[] Returns an array of Vehicle objects
+    //  */
+
+    /**
+     * Rapport du catalogue
+     * @param object $data
+     * @return Vehicle[]
+     */
+    public function findCatalogByFilters(object $data)
+    {
+        $query = $this->createQueryBuilder('v');
+
+        // Recherche par mot-clé (marque ou modèle)
+        if (isset($data->search) && TypeVariable::is_not_null($data->search) && $data->search) {
+            $query = $query
+                ->andWhere('LOWER(v.marque) LIKE :search OR LOWER(v.modele) LIKE :search')
+                ->setParameter('search', '%' . $this->type->trim(strtolower($data->search)) . '%');
+        }
+
+        // Statut
+        if (isset($data->status) && TypeVariable::is_not_null($data->status) && $data->status) {
+            $query = $query
+                ->andWhere('v.statut = :status')
+                ->setParameter('status', $this->type->trim($data->status));
+        }
+
+        // Année Min
+        if (isset($data->yearMin) && TypeVariable::is_not_null($data->yearMin) && $data->yearMin) {
+            $query = $query
+                ->andWhere('v.annee >= :yearMin')
+                ->setParameter('yearMin', (int)$this->type->trim($data->yearMin));
+        }
+
+        // Année Max
+        if (isset($data->yearMax) && TypeVariable::is_not_null($data->yearMax) && $data->yearMax) {
+            $query = $query
+                ->andWhere('v.annee <= :yearMax')
+                ->setParameter('yearMax', (int)$this->type->trim($data->yearMax));
+        }
+
+        // Prix Min
+        if (isset($data->priceMin) && TypeVariable::is_not_null($data->priceMin) && $data->priceMin) {
+            $query = $query
+                ->andWhere('v.prixDeVente >= :priceMin')
+                ->setParameter('priceMin', (float)$this->type->trim($data->priceMin));
+        }
+
+        // Prix Max
+        if (isset($data->priceMax) && TypeVariable::is_not_null($data->priceMax) && $data->priceMax) {
+            $query = $query
+                ->andWhere('v.prixDeVente <= :priceMax')
+                ->setParameter('priceMax', (float)$this->type->trim($data->priceMax));
+        }
+
+        $query = $query->orderBy('v.createdAt', 'DESC');
+
+        return $query->getQuery()->getResult();
+    }
     //  * @return Vehicle[] Returns an array of Vehicle objects
     //  */
     /*

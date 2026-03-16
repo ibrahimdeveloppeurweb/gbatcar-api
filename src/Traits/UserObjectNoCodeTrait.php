@@ -12,7 +12,7 @@ trait UserObjectNoCodeTrait
     /**
      * @var UuidInterface
      * @ORM\Column(type="uuid", length=255, unique=true)
-     * @Groups({"user", "admin", "setting"})
+     * @Groups({"user", "admin", "setting", "path", "role"})
      */
     private $uuid;
 

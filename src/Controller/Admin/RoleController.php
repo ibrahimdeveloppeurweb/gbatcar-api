@@ -4,7 +4,6 @@ namespace App\Controller\Admin;
 
 use App\Helpers\JsonHelper;
 use App\Exception\ExceptionApi;
-use App\Helpers\AgencyHelper;
 use App\Manager\Extra\RoleManager;
 use App\Repository\Extra\RoleRepository;
 use App\Utils\TypeVariable;
@@ -34,7 +33,7 @@ class RoleController extends AbstractController
      */
     public function index()
     {
-        $roles = $this->roleRepository->findBy(["agency" => null], ['createdAt' => 'DESC']);
+        $roles = $this->roleRepository->findBy([], ['createdAt' => 'DESC']);
         return $this->json($roles, 200, [], ['groups' => ['role']]);
     }
     
@@ -70,7 +69,7 @@ class RoleController extends AbstractController
     {
         try {
             $data = json_decode($request->getContent());
-            $role = $this->roleManager->create($data->uuid, AgencyHelper::agency($this->getUser()));
+            $role = $this->roleManager->create($data);
             $response = (new JsonHelper($role, 'Permission ' . $role->getNom() . ' ajouté avec succès', 'success', 200, []))->serialize();
         } catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
@@ -94,5 +93,21 @@ class RoleController extends AbstractController
             return $this->json($response, $e->getCode(), [], ['groups' => ['role']]);
         }
         return $this->json($response, 200, [], ['groups' => ['role', 'file', 'folder']]);
+    }
+
+    /**
+     * @Route("/{uuid}/delete", name="delete_role_admin", methods={"DELETE"},
+     * options={"description"="Supprimer un role admin", "permission"="ROLE:ADMIN:DELETE"})
+     */
+    public function delete($uuid)
+    {
+        try {
+            $role = $this->roleManager->delete($uuid);
+            $response = (new JsonHelper($role, 'Le role ' . $role->getNom() . ' a été supprimé avec succès', 'success', 200, []))->serialize();
+        } catch (ExceptionApi $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
+            return $this->json($response, $e->getCode(), [], ['groups' => ['role']]);
+        }
+        return $this->json($response, 200, [], ['groups' => ['role']]);
     }
 }
