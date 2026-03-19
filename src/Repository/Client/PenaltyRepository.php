@@ -47,32 +47,34 @@ class PenaltyRepository extends ServiceEntityRepository
         }
     }
 
-    // /**
-    //  * @return Penalty[] Returns an array of Penalty objects
-    //  */
-    /*
-    public function findByExampleField($value)
+    /**
+     * @param object $data
+     * @return Penalty[]
+     */
+    public function findByFilters(object $data)
     {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.exampleField = :val')
-            ->setParameter('val', $value)
-            ->orderBy('p.id', 'ASC')
-            ->setMaxResults(10)
-            ->getQuery()
-            ->getResult()
-        ;
-    }
-    */
+        $qb = $this->createQueryBuilder('p');
 
-    /*
-    public function findOneBySomeField($value): ?Penalty
-    {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.exampleField = :val')
-            ->setParameter('val', $value)
-            ->getQuery()
-            ->getOneOrNullResult()
-        ;
+        if (isset($data->vehicleUuid) && $data->vehicleUuid) {
+            $qb->join('p.vehicle', 'v')
+                ->andWhere('v.uuid = :vehicleUuid')
+                ->setParameter('vehicleUuid', $data->vehicleUuid);
+        }
+
+        if (isset($data->contractUuid) && $data->contractUuid) {
+            $qb->join('p.contract', 'c')
+                ->andWhere('c.uuid = :contractUuid')
+                ->setParameter('contractUuid', $data->contractUuid);
+        }
+
+        if (isset($data->clientUuid) && $data->clientUuid) {
+            $qb->join('p.client', 'cl')
+                ->andWhere('cl.uuid = :clientUuid')
+                ->setParameter('clientUuid', $data->clientUuid);
+        }
+
+        $qb->orderBy('p.date', 'DESC');
+
+        return $qb->getQuery()->getResult();
     }
-    */
 }

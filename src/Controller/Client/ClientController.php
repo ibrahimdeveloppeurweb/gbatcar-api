@@ -31,17 +31,9 @@ class ClientController extends AbstractController
      */
     public function index(Request $request)
     {
-        $items = $this->clientRepository->findAll();
-        return $this->json($items, 200, [], ['groups' => ["client"]]);
-    }
-
-    /**
-     * @Route("/new", name="new_client", methods={"POST"}, 
-     * options={"description"="Ajouter un nouveau client", "permission"="CLIENT:NEW"})
-     */
-    public function new (Request $request)
-    {
-    // To be implemented with ClientManager
+        $filters = $request->query->all();
+        $items = $this->clientManager->findByFilters($filters);
+        return $this->json($items, 200, [], ['groups' => ["client", "contract", "payment"]]);
     }
 
     /**
@@ -50,8 +42,28 @@ class ClientController extends AbstractController
      */
     public function dashboard()
     {
-        // To be implemented
-        return $this->json([], 200);
+        $data = $this->clientManager->getDashboardData();
+        return $this->json($data, 200, [], ['groups' => ["client", "contract", "payment"]]);
+    }
+
+    /**
+     * @Route("/new", name="new_client", methods={"POST"}, 
+     * options={"description"="Ajouter un nouveau client", "permission"="CLIENT:NEW"})
+     */
+    public function new(Request $request)
+    {
+        $raw = $request->getContent();
+        $data = $raw ? json_decode($raw) : (object)$request->request->all();
+        if (!$data)
+            $data = new \stdClass();
+
+        try {
+            $client = $this->clientManager->create($data, $request);
+            return $this->json($client, 201, [], ['groups' => ["client"]]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la création.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -73,7 +85,18 @@ class ClientController extends AbstractController
      */
     public function edit(Request $request, $uuid)
     {
-    // To be implemented with ClientManager
+        $raw = $request->getContent();
+        $data = $raw ? json_decode($raw) : (object)$request->request->all();
+        if (!$data)
+            $data = new \stdClass();
+
+        try {
+            $client = $this->clientManager->update($uuid, $data, $request);
+            return $this->json($client, 200, [], ['groups' => ["client"]]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la modification.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -82,6 +105,17 @@ class ClientController extends AbstractController
      */
     public function delete($uuid)
     {
-    // To be implemented with ClientManager
+        $client = $this->clientRepository->findOneByUuid($uuid);
+        if (!$client) {
+            return $this->json(['message' => 'Client introuvable.'], 404);
+        }
+
+        try {
+            $this->clientManager->delete($client);
+            return $this->json(['message' => 'Client supprimé avec succès.'], 200);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la suppression.', 'details' => $e->getMessage()], 500);
+        }
     }
 }

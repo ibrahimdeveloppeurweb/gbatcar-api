@@ -24,57 +24,63 @@ class Penalty
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $reference;
 
     /**
      * @ORM\Column(type="text", nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $reason;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $amount;
 
     /**
      * @ORM\Column(type="datetime_immutable", nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $date;
 
     /**
      * @ORM\Column(type="date_immutable", nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $dueDate;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $status;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $severity;
 
     /**
      * @ORM\Column(type="text", nullable=true)
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "compliance"})
      */
     private $observation;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"penalty", "compliance"})
+     */
+    private $proofUrl;
 
     // --- RELATIONS ---
 
@@ -248,6 +254,18 @@ class Penalty
     public function setDueDate(?\DateTimeImmutable $dueDate): self
     {
         $this->dueDate = $dueDate;
+
+        return $this;
+    }
+
+    public function getProofUrl(): ?string
+    {
+        return $this->proofUrl;
+    }
+
+    public function setProofUrl(?string $proofUrl): self
+    {
+        $this->proofUrl = $proofUrl;
 
         return $this;
     }

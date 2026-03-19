@@ -5,6 +5,8 @@ namespace App\Entity\Client;
 use App\Repository\Client\MaintenanceRepository;
 use App\Traits\SearchableTrait;
 use App\Traits\UserObjectNoCodeTrait;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
@@ -36,43 +38,43 @@ class Maintenance
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $type;
 
     /**
      * @ORM\Column(type="text", nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $description;
 
     /**
      * @ORM\Column(type="datetime_immutable", nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $dateIntervention;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $kilometrage;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $cost;
 
     /**
      * @ORM\Column(type="string", length=150, nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $provider;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $status;
 
@@ -128,6 +130,22 @@ class Maintenance
      * @Groups({"maintenance"})
      */
     private $contract;
+
+    /**
+     * @ORM\OneToMany(targetEntity=MaintenanceDocument::class, mappedBy="maintenance", cascade={"persist", "remove"})
+     * @Groups({"maintenance"})
+     */
+    private $documents;
+
+    public function __construct()
+    {
+        $this->documents = new ArrayCollection();
+    }
+
+    public function getDocuments(): Collection
+    {
+        return $this->documents;
+    }
 
     public function getId(): ?int
     {

@@ -31,7 +31,8 @@ class ContractController extends AbstractController
      */
     public function index(Request $request)
     {
-        $items = $this->contractRepository->findAll();
+        $filters = $request->query->all();
+        $items = $this->contractRepository->findByFilters($filters);
         return $this->json($items, 200, [], ['groups' => ["contract"]]);
     }
 
@@ -41,7 +42,9 @@ class ContractController extends AbstractController
      */
     public function new (Request $request)
     {
-    // To be implemented with ContractManager
+        $data = json_decode($request->getContent());
+        $item = $this->contractManager->create($data);
+        return $this->json($item, 201, [], ['groups' => ["contract"]]);
     }
 
     /**
@@ -73,7 +76,9 @@ class ContractController extends AbstractController
      */
     public function edit(Request $request, $uuid)
     {
-    // To be implemented with ContractManager
+        $data = json_decode($request->getContent());
+        $item = $this->contractManager->update($uuid, $data);
+        return $this->json($item, 200, [], ['groups' => ["contract"]]);
     }
 
     /**
@@ -82,7 +87,12 @@ class ContractController extends AbstractController
      */
     public function delete($uuid)
     {
-    // To be implemented with ContractManager
+        $item = $this->contractRepository->findOneBy(['uuid' => $uuid]);
+        if (!$item) {
+            return $this->json(['message' => 'Not found'], 404);
+        }
+        $this->contractManager->delete($item);
+        return $this->json(['message' => 'Deleted successfully'], 200);
     }
 
     /**
