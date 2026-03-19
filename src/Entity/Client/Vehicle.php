@@ -26,25 +26,25 @@ class Vehicle
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"vehicle", "client", "contract"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
      */
     private $immatriculation;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
      */
     private $marque;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
      */
     private $modele;
 
@@ -213,7 +213,7 @@ class Vehicle
     private $includingGPS = false;
 
     // --- RENTABILITÉ ---
-    
+
     /**
      * @ORM\Column(type="float", nullable=true)
      * @Groups({"vehicle"})
@@ -299,11 +299,13 @@ class Vehicle
 
     /**
      * @ORM\OneToMany(targetEntity=Contract::class, mappedBy="vehicle")
+     * @Groups({"vehicle"})
      */
     private $contracts;
 
     /**
      * @ORM\OneToMany(targetEntity=Maintenance::class, mappedBy="vehicle")
+     * @Groups({"vehicle"})
      */
     private $maintenances;
 
@@ -312,12 +314,31 @@ class Vehicle
      */
     private $alerts;
 
-    // Construct & Getters & Setters omitted for brevity during scaffolding
+    /**
+     * @ORM\OneToOne(targetEntity=VehicleCompliance::class, mappedBy="vehicle", cascade={"persist", "remove"})
+     * @Groups({"vehicle"})
+     */
+    private $compliance;
+
+    /**
+     * @ORM\OneToMany(targetEntity=VehicleComplianceDocument::class, mappedBy="vehicle", cascade={"persist", "remove"})
+     * @Groups({"vehicle", "compliance"})
+     */
+    private $complianceDocuments;
+
+    /**
+     * @ORM\OneToMany(targetEntity=Penalty::class, mappedBy="vehicle")
+     * @Groups({"vehicle", "compliance"})
+     */
+    private $penalties;
+
     public function __construct()
     {
         $this->contracts = new ArrayCollection();
         $this->maintenances = new ArrayCollection();
         $this->alerts = new ArrayCollection();
+        $this->complianceDocuments = new ArrayCollection();
+        $this->penalties = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -325,20 +346,12 @@ class Vehicle
         return $this->id;
     }
 
-    // Standard getter setters for the rest...
-
-    /**
-     * @Groups({"vehicle"})
-     */
-    function getSearchableTitle(): string
+    public function getSearchableTitle(): string
     {
         return trim($this->marque . ' ' . $this->modele . ' ' . $this->immatriculation);
     }
 
-    /**
-     * @Groups({"vehicle"})
-     */
-    function getSearchableDetail(): string
+    public function getSearchableDetail(): string
     {
         return 'Véhicule ' . $this->statut;
     }
@@ -351,7 +364,6 @@ class Vehicle
     public function setImmatriculation(?string $immatriculation): self
     {
         $this->immatriculation = $immatriculation;
-
         return $this;
     }
 
@@ -363,7 +375,6 @@ class Vehicle
     public function setMarque(?string $marque): self
     {
         $this->marque = $marque;
-
         return $this;
     }
 
@@ -375,7 +386,6 @@ class Vehicle
     public function setModele(?string $modele): self
     {
         $this->modele = $modele;
-
         return $this;
     }
 
@@ -387,7 +397,6 @@ class Vehicle
     public function setAnnee(?int $annee): self
     {
         $this->annee = $annee;
-
         return $this;
     }
 
@@ -399,7 +408,6 @@ class Vehicle
     public function setCouleur(?string $couleur): self
     {
         $this->couleur = $couleur;
-
         return $this;
     }
 
@@ -411,7 +419,6 @@ class Vehicle
     public function setFinition(?string $finition): self
     {
         $this->finition = $finition;
-
         return $this;
     }
 
@@ -423,7 +430,6 @@ class Vehicle
     public function setNumeroChassis(?string $numeroChassis): self
     {
         $this->numeroChassis = $numeroChassis;
-
         return $this;
     }
 
@@ -435,7 +441,6 @@ class Vehicle
     public function setNombrePlaces(?int $nombrePlaces): self
     {
         $this->nombrePlaces = $nombrePlaces;
-
         return $this;
     }
 
@@ -447,7 +452,6 @@ class Vehicle
     public function setCarburant(?string $carburant): self
     {
         $this->carburant = $carburant;
-
         return $this;
     }
 
@@ -459,7 +463,6 @@ class Vehicle
     public function setTransmission(?string $transmission): self
     {
         $this->transmission = $transmission;
-
         return $this;
     }
 
@@ -471,7 +474,6 @@ class Vehicle
     public function setCategorie(?string $categorie): self
     {
         $this->categorie = $categorie;
-
         return $this;
     }
 
@@ -483,7 +485,6 @@ class Vehicle
     public function setKilometrage(?int $kilometrage): self
     {
         $this->kilometrage = $kilometrage;
-
         return $this;
     }
 
@@ -495,7 +496,6 @@ class Vehicle
     public function setProchainEntretien(?int $prochainEntretien): self
     {
         $this->prochainEntretien = $prochainEntretien;
-
         return $this;
     }
 
@@ -507,7 +507,6 @@ class Vehicle
     public function setStatut(?string $statut): self
     {
         $this->statut = $statut;
-
         return $this;
     }
 
@@ -519,7 +518,6 @@ class Vehicle
     public function setPaymentStatus(?string $paymentStatus): self
     {
         $this->paymentStatus = $paymentStatus;
-
         return $this;
     }
 
@@ -531,7 +529,6 @@ class Vehicle
     public function setGpsStatus(?string $gpsStatus): self
     {
         $this->gpsStatus = $gpsStatus;
-
         return $this;
     }
 
@@ -543,7 +540,6 @@ class Vehicle
     public function setNotesInternes(?string $notesInternes): self
     {
         $this->notesInternes = $notesInternes;
-
         return $this;
     }
 
@@ -555,7 +551,6 @@ class Vehicle
     public function setPhoto(?string $photo): self
     {
         $this->photo = $photo;
-
         return $this;
     }
 
@@ -567,7 +562,6 @@ class Vehicle
     public function setPhotos(?array $photos): self
     {
         $this->photos = $photos;
-
         return $this;
     }
 
@@ -579,7 +573,6 @@ class Vehicle
     public function setClient(?Client $client): self
     {
         $this->client = $client;
-
         return $this;
     }
 
@@ -597,19 +590,16 @@ class Vehicle
             $this->contracts[] = $contract;
             $contract->setVehicle($this);
         }
-
         return $this;
     }
 
     public function removeContract(Contract $contract): self
     {
         if ($this->contracts->removeElement($contract)) {
-            // set the owning side to null (unless already changed)
             if ($contract->getVehicle() === $this) {
                 $contract->setVehicle(null);
             }
         }
-
         return $this;
     }
 
@@ -627,19 +617,16 @@ class Vehicle
             $this->maintenances[] = $maintenance;
             $maintenance->setVehicle($this);
         }
-
         return $this;
     }
 
     public function removeMaintenance(Maintenance $maintenance): self
     {
         if ($this->maintenances->removeElement($maintenance)) {
-            // set the owning side to null (unless already changed)
             if ($maintenance->getVehicle() === $this) {
                 $maintenance->setVehicle(null);
             }
         }
-
         return $this;
     }
 
@@ -657,19 +644,16 @@ class Vehicle
             $this->alerts[] = $alert;
             $alert->setVehicle($this);
         }
-
         return $this;
     }
 
     public function removeAlert(MaintenanceAlert $alert): self
     {
         if ($this->alerts->removeElement($alert)) {
-            // set the owning side to null (unless already changed)
             if ($alert->getVehicle() === $this) {
                 $alert->setVehicle(null);
             }
         }
-
         return $this;
     }
 
@@ -681,7 +665,6 @@ class Vehicle
     public function setDateDerniereMaintenance(?\DateTimeImmutable $dateDerniereMaintenance): self
     {
         $this->dateDerniereMaintenance = $dateDerniereMaintenance;
-
         return $this;
     }
 
@@ -693,7 +676,23 @@ class Vehicle
     public function setMaintenanceAlert(?bool $maintenanceAlert): self
     {
         $this->maintenanceAlert = $maintenanceAlert;
+        return $this;
+    }
 
+    public function getCompliance(): ?VehicleCompliance
+    {
+        return $this->compliance;
+    }
+
+    public function setCompliance(?VehicleCompliance $compliance): self
+    {
+        if ($compliance === null && $this->compliance !== null) {
+            $this->compliance->setVehicle(null);
+        }
+        if ($compliance !== null && $compliance->getVehicle() !== $this) {
+            $compliance->setVehicle($this);
+        }
+        $this->compliance = $compliance;
         return $this;
     }
 
@@ -705,7 +704,6 @@ class Vehicle
     public function setReimbursementProgress(?float $reimbursementProgress): self
     {
         $this->reimbursementProgress = $reimbursementProgress;
-
         return $this;
     }
 
@@ -717,7 +715,6 @@ class Vehicle
     public function setPipelineStatus(?string $pipelineStatus): self
     {
         $this->pipelineStatus = $pipelineStatus;
-
         return $this;
     }
 
@@ -729,7 +726,6 @@ class Vehicle
     public function setPreReservedBy(?string $preReservedBy): self
     {
         $this->preReservedBy = $preReservedBy;
-
         return $this;
     }
 
@@ -741,7 +737,6 @@ class Vehicle
     public function setDescription(?string $description): self
     {
         $this->description = $description;
-
         return $this;
     }
 
@@ -753,7 +748,6 @@ class Vehicle
     public function setPrixParJour(?float $prixParJour): self
     {
         $this->prixParJour = $prixParJour;
-
         return $this;
     }
 
@@ -765,7 +759,6 @@ class Vehicle
     public function setPrixDeVente(?float $prixDeVente): self
     {
         $this->prixDeVente = $prixDeVente;
-
         return $this;
     }
 
@@ -777,7 +770,6 @@ class Vehicle
     public function setTcoEstime(?float $tcoEstime): self
     {
         $this->tcoEstime = $tcoEstime;
-
         return $this;
     }
 
@@ -789,7 +781,6 @@ class Vehicle
     public function setMargeBrutePrevisionnelle(?float $margeBrutePrevisionnelle): self
     {
         $this->margeBrutePrevisionnelle = $margeBrutePrevisionnelle;
-
         return $this;
     }
 
@@ -801,7 +792,6 @@ class Vehicle
     public function setCarteGriseUrl(?string $carteGriseUrl): self
     {
         $this->carteGriseUrl = $carteGriseUrl;
-
         return $this;
     }
 
@@ -813,7 +803,6 @@ class Vehicle
     public function setAssuranceUrl(?string $assuranceUrl): self
     {
         $this->assuranceUrl = $assuranceUrl;
-
         return $this;
     }
 
@@ -825,7 +814,6 @@ class Vehicle
     public function setVisiteTechniqueUrl(?string $visiteTechniqueUrl): self
     {
         $this->visiteTechniqueUrl = $visiteTechniqueUrl;
-
         return $this;
     }
 
@@ -851,27 +839,145 @@ class Vehicle
         return $this;
     }
 
-    public function getDepositPercentage(): ?float { return $this->depositPercentage; }
-    public function setDepositPercentage(?float $depositPercentage): self { $this->depositPercentage = $depositPercentage; return $this; }
+    public function getDepositPercentage(): ?float
+    {
+        return $this->depositPercentage;
+    }
 
-    public function getDurationInMonths(): ?int { return $this->durationInMonths; }
-    public function setDurationInMonths(?int $durationInMonths): self { $this->durationInMonths = $durationInMonths; return $this; }
+    public function setDepositPercentage(?float $depositPercentage): self
+    {
+        $this->depositPercentage = $depositPercentage;
+        return $this;
+    }
 
-    public function getPurchasePrice(): ?float { return $this->purchasePrice; }
-    public function setPurchasePrice(?float $purchasePrice): self { $this->purchasePrice = $purchasePrice; return $this; }
+    public function getDurationInMonths(): ?int
+    {
+        return $this->durationInMonths;
+    }
 
-    public function getCustomsFees(): ?float { return $this->customsFees; }
-    public function setCustomsFees(?float $customsFees): self { $this->customsFees = $customsFees; return $this; }
+    public function setDurationInMonths(?int $durationInMonths): self
+    {
+        $this->durationInMonths = $durationInMonths;
+        return $this;
+    }
 
-    public function getTransitFees(): ?float { return $this->transitFees; }
-    public function setTransitFees(?float $transitFees): self { $this->transitFees = $transitFees; return $this; }
+    public function getPurchasePrice(): ?float
+    {
+        return $this->purchasePrice;
+    }
 
-    public function getPreparationCost(): ?float { return $this->preparationCost; }
-    public function setPreparationCost(?float $preparationCost): self { $this->preparationCost = $preparationCost; return $this; }
+    public function setPurchasePrice(?float $purchasePrice): self
+    {
+        $this->purchasePrice = $purchasePrice;
+        return $this;
+    }
 
-    public function getGpsInstallationCost(): ?float { return $this->gpsInstallationCost; }
-    public function setGpsInstallationCost(?float $gpsInstallationCost): self { $this->gpsInstallationCost = $gpsInstallationCost; return $this; }
+    public function getCustomsFees(): ?float
+    {
+        return $this->customsFees;
+    }
 
-    public function getOtherCosts(): ?float { return $this->otherCosts; }
-    public function setOtherCosts(?float $otherCosts): self { $this->otherCosts = $otherCosts; return $this; }
-}
+    public function setCustomsFees(?float $customsFees): self
+    {
+        $this->customsFees = $customsFees;
+        return $this;
+    }
+
+    public function getTransitFees(): ?float
+    {
+        return $this->transitFees;
+    }
+
+    public function setTransitFees(?float $transitFees): self
+    {
+        $this->transitFees = $transitFees;
+        return $this;
+    }
+
+    public function getPreparationCost(): ?float
+    {
+        return $this->preparationCost;
+    }
+
+    public function setPreparationCost(?float $preparationCost): self
+    {
+        $this->preparationCost = $preparationCost;
+        return $this;
+    }
+
+    public function getGpsInstallationCost(): ?float
+    {
+        return $this->gpsInstallationCost;
+    }
+
+    public function setGpsInstallationCost(?float $gpsInstallationCost): self
+    {
+        $this->gpsInstallationCost = $gpsInstallationCost;
+        return $this;
+    }
+
+    public function getOtherCosts(): ?float
+    {
+        return $this->otherCosts;
+    }
+
+    public function setOtherCosts(?float $otherCosts): self
+    {
+        $this->otherCosts = $otherCosts;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, VehicleComplianceDocument>
+     */
+    public function getComplianceDocuments(): Collection
+    {
+        return $this->complianceDocuments;
+    }
+
+    public function addComplianceDocument(VehicleComplianceDocument $document): self
+    {
+        if (!$this->complianceDocuments->contains($document)) {
+            $this->complianceDocuments[] = $document;
+            $document->setVehicle($this);
+        }
+        return $this;
+    }
+
+    public function removeComplianceDocument(VehicleComplianceDocument $document): self
+    {
+        if ($this->complianceDocuments->removeElement($document)) {
+            if ($document->getVehicle() === $this) {
+                $document->setVehicle(null);
+            }
+        }
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Penalty>
+     */
+    public function getPenalties(): Collection
+    {
+        return $this->penalties;
+    }
+
+    public function addPenalty(Penalty $penalty): self
+    {
+        if (!$this->penalties->contains($penalty)) {
+            $this->penalties[] = $penalty;
+            $penalty->setVehicle($this);
+        }
+        return $this;
+    }
+
+    public function removePenalty(Penalty $penalty): self
+    {
+        if ($this->penalties->removeElement($penalty)) {
+            if ($penalty->getVehicle() === $this) {
+                $penalty->setVehicle(null);
+            }
+        }
+        return $this;
+    }
+}

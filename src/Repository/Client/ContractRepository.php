@@ -47,32 +47,60 @@ class ContractRepository extends ServiceEntityRepository
         }
     }
 
-    // /**
-    //  * @return Contract[] Returns an array of Contract objects
-    //  */
-    /*
-    public function findByExampleField($value)
+    public function findByFilters(array $filters): array
     {
-        return $this->createQueryBuilder('c')
-            ->andWhere('c.exampleField = :val')
-            ->setParameter('val', $value)
-            ->orderBy('c.id', 'ASC')
-            ->setMaxResults(10)
-            ->getQuery()
-            ->getResult()
-        ;
-    }
-    */
+        $qb = $this->createQueryBuilder('c')
+            ->leftJoin('c.client', 'cl')
+            ->leftJoin('c.vehicle', 'v')
+            ->addSelect('cl')
+            ->addSelect('v');
 
-    /*
-    public function findOneBySomeField($value): ?Contract
-    {
-        return $this->createQueryBuilder('c')
-            ->andWhere('c.exampleField = :val')
-            ->setParameter('val', $value)
-            ->getQuery()
-            ->getOneOrNullResult()
-        ;
+        if (!empty($filters['search'])) {
+            $search = '%' . mb_strtolower($filters['search']) . '%';
+            $qb->andWhere('LOWER(c.reference) LIKE :search OR LOWER(cl.firstName) LIKE :search OR LOWER(cl.lastName) LIKE :search OR LOWER(v.marque) LIKE :search OR LOWER(v.modele) LIKE :search OR LOWER(v.immatriculation) LIKE :search')
+                ->setParameter('search', $search);
+        }
+
+        if (!empty($filters['status'])) {
+            $qb->andWhere('c.status = :status')
+                ->setParameter('status', $filters['status']);
+        }
+
+        if (!empty($filters['paymentStatus'])) {
+            $qb->andWhere('c.paymentStatus = :paymentStatus')
+                ->setParameter('paymentStatus', $filters['paymentStatus']);
+        }
+
+        if (!empty($filters['startDateMin'])) {
+            $qb->andWhere('c.startDate >= :startDateMin')
+                ->setParameter('startDateMin', new \DateTime($filters['startDateMin']));
+        }
+
+        if (!empty($filters['startDateMax'])) {
+            $qb->andWhere('c.startDate <= :startDateMax')
+                ->setParameter('startDateMax', new \DateTime($filters['startDateMax']));
+        }
+
+        if (isset($filters['progressMin'])) {
+            // progress = (paidAmount / totalAmount) * 100
+            $qb->andWhere('(c.paidAmount / NULLIF(c.totalAmount, 0)) * 100 >= :progressMin')
+                ->setParameter('progressMin', $filters['progressMin']);
+        }
+
+        if (isset($filters['progressMax'])) {
+            $qb->andWhere('(c.paidAmount / NULLIF(c.totalAmount, 0)) * 100 <= :progressMax')
+                ->setParameter('progressMax', $filters['progressMax']);
+        }
+
+        $qb->orderBy('c.createdAt', 'DESC');
+
+        if (!empty($filters['count']) && is_numeric($filters['count'])) {
+            $qb->setMaxResults((int)$filters['count']);
+        }
+        else {
+            $qb->setMaxResults(20);
+        }
+
+        return $qb->getQuery()->getResult();
     }
-    */
 }

@@ -32,13 +32,13 @@ class Contract
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"contract", "payment", "maintenance"})
+     * @Groups({"contract", "payment", "maintenance", "vehicle"})
      */
     private $reference;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle"})
      */
     private $totalAmount;
 
@@ -50,7 +50,7 @@ class Contract
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle"})
      */
     private $paidAmount;
 
@@ -82,13 +82,13 @@ class Contract
 
     /**
      * @ORM\Column(type="date_immutable", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle"})
      */
     private $startDate;
 
     /**
      * @ORM\Column(type="date_immutable", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle"})
      */
     private $endDate;
 
@@ -205,6 +205,12 @@ class Contract
      * @Groups({"contract"})
      */
     private $observation;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"contract"})
+     */
+    private $prixDeVente;
 
     // --- RELATIONS ---
 
@@ -711,6 +717,18 @@ class Contract
     public function setProjectedMargin(?float $projectedMargin): self
     {
         $this->projectedMargin = $projectedMargin;
+
+        return $this;
+    }
+
+    public function getPrixDeVente(): ?float
+    {
+        return $this->prixDeVente;
+    }
+
+    public function setPrixDeVente(?float $prixDeVente): self
+    {
+        $this->prixDeVente = $prixDeVente;
 
         return $this;
     }

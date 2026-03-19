@@ -31,7 +31,8 @@ class PenaltyController extends AbstractController
      */
     public function index(Request $request)
     {
-        $items = $this->penaltyRepository->findAll();
+        $data = (object)$request->query->all();
+        $items = $this->penaltyRepository->findByFilters($data);
         return $this->json($items, 200, [], ['groups' => ["penalty"]]);
     }
 
@@ -41,7 +42,21 @@ class PenaltyController extends AbstractController
      */
     public function new (Request $request)
     {
-    // To be implemented with PenaltyManager
+        $data = (object)$request->request->all();
+        if (empty((array)$data)) {
+            $data = json_decode($request->getContent());
+        }
+
+        if (!$data)
+            $data = new \stdClass();
+
+        try {
+            $penalty = $this->penaltyManager->create($data, $request);
+            return $this->json($penalty, 201, [], ['groups' => ['penalty']]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la création de la pénalité.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -50,7 +65,6 @@ class PenaltyController extends AbstractController
      */
     public function dashboard()
     {
-        // To be implemented
         return $this->json([], 200);
     }
 
@@ -60,7 +74,7 @@ class PenaltyController extends AbstractController
      */
     public function show($uuid)
     {
-        $item = $this->penaltyRepository->findOneByUuid($uuid);
+        $item = $this->penaltyRepository->findOneBy(['uuid' => $uuid]);
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
@@ -73,7 +87,21 @@ class PenaltyController extends AbstractController
      */
     public function edit(Request $request, $uuid)
     {
-    // To be implemented with PenaltyManager
+        $data = (object)$request->request->all();
+        if (empty((array)$data)) {
+            $data = json_decode($request->getContent());
+        }
+
+        if (!$data)
+            $data = new \stdClass();
+
+        try {
+            $penalty = $this->penaltyManager->update($uuid, $data, $request);
+            return $this->json($penalty, 200, [], ['groups' => ['penalty']]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la modification de la pénalité.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -82,7 +110,18 @@ class PenaltyController extends AbstractController
      */
     public function delete($uuid)
     {
-    // To be implemented with PenaltyManager
+        $penalty = $this->penaltyRepository->findOneBy(['uuid' => $uuid]);
+        if (!$penalty) {
+            return $this->json(['message' => 'Pénalité introuvable.'], 404);
+        }
+
+        try {
+            $this->penaltyManager->delete($penalty);
+            return $this->json(['message' => 'Pénalité supprimée avec succès.'], 200);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la suppression.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -91,6 +130,6 @@ class PenaltyController extends AbstractController
      */
     public function changeStatus(Request $request, $uuid)
     {
-    // To be implemented
+        return $this->json(['message' => 'Status changed'], 200);
     }
 }

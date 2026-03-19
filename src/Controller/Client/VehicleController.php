@@ -35,7 +35,8 @@ class VehicleController extends AbstractController
      */
     public function index(Request $request)
     {
-        $items = $this->vehicleRepository->findAll();
+        $data = (object) $request->query->all();
+        $items = $this->vehicleRepository->findCatalogByFilters($data);
         return $this->json($items, 200, [], ['groups' => ["vehicle"]]);
     }
 
@@ -61,10 +62,10 @@ class VehicleController extends AbstractController
      * @Route("/dashboard", name="dashboard_vehicle", methods={"GET"}, 
      * options={"description"="Statistiques du tableau de bord", "permission"="VEHICLE:DASHBOARD"})
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        // To be implemented
-        return $this->json([], 200);
+        $data = $this->vehicleManager->getDashboardData();
+        return $this->json($data, 200, [], ['groups' => ["vehicle"]]);
     }
 
     /**
@@ -73,7 +74,10 @@ class VehicleController extends AbstractController
      */
     public function show($uuid)
     {
-        $item = $this->vehicleRepository->findOneByUuid($uuid);
+        $item = is_numeric($uuid) 
+            ? $this->vehicleRepository->find($uuid)
+            : $this->vehicleRepository->findOneByUuid($uuid);
+
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
@@ -103,7 +107,10 @@ class VehicleController extends AbstractController
      */
     public function delete($uuid)
     {
-        $vehicle = $this->vehicleRepository->findOneByUuid($uuid);
+        $vehicle = is_numeric($uuid) 
+            ? $this->vehicleRepository->find($uuid)
+            : $this->vehicleRepository->findOneByUuid($uuid);
+
         if (!$vehicle) {
             return $this->json(['message' => 'Véhicule introuvable.'], 404);
         }
@@ -213,12 +220,15 @@ class VehicleController extends AbstractController
     }
 
     /**
-     * @Route("/{id}/cover-image", name="vehicle_set_cover_image", methods={"PUT"},
+     * @Route("/{id_or_uuid}/cover-image", name="vehicle_set_cover_image", methods={"PUT"},
      * options={"description"="Définit une image comme couverture du véhicule", "permission"="VEHICLE:EDIT"})
      */
-    public function setCoverImage(int $id, Request $request)
+    public function setCoverImage($id_or_uuid, Request $request)
     {
-        $vehicle = $this->vehicleRepository->find($id);
+        $vehicle = is_numeric($id_or_uuid) 
+            ? $this->vehicleRepository->find($id_or_uuid)
+            : $this->vehicleRepository->findOneByUuid($id_or_uuid);
+
         if (!$vehicle) {
             return $this->json(['message' => 'Véhicule non trouvé'], 404);
         }
@@ -254,12 +264,15 @@ class VehicleController extends AbstractController
     }
 
     /**
-     * @Route("/{id}/photo", name="vehicle_remove_photo", methods={"DELETE"},
+     * @Route("/{id_or_uuid}/photo", name="vehicle_remove_photo", methods={"DELETE"},
      * options={"description"="Supprime une photo du tableau photos du véhicule", "permission"="VEHICLE:EDIT"})
      */
-    public function removePhoto(int $id, Request $request)
+    public function removePhoto($id_or_uuid, Request $request)
     {
-        $vehicle = $this->vehicleRepository->find($id);
+        $vehicle = is_numeric($id_or_uuid) 
+            ? $this->vehicleRepository->find($id_or_uuid)
+            : $this->vehicleRepository->findOneByUuid($id_or_uuid);
+
         if (!$vehicle) {
             return $this->json(['message' => 'Véhicule non trouvé'], 404);
         }

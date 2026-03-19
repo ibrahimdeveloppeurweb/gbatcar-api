@@ -47,7 +47,8 @@ class GeneralSettingController extends AbstractController
             $setting = $this->generalSettingManager->getSettings();
             $response = (new JsonHelper($setting, null, 'success', 200, []))->serialize();
             return $this->json($response, 200, [], ['groups' => ['setting']]);
-        } catch (ExceptionApi $e) {
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ['setting']]);
         }
@@ -65,7 +66,8 @@ class GeneralSettingController extends AbstractController
      *        @OA\Property(property="penaliteRetardJournaliere", type="number", example=1.5),
      *        @OA\Property(property="delaiGracePenalite", type="integer", example=3),
      *        @OA\Property(property="dureeContratDefautMois", type="integer", example=36),
-     *        @OA\Property(property="apportInitialPourcentage", type="number", example=20)
+     *        @OA\Property(property="apportInitialPourcentage", type="number", example=20),
+     *        @OA\Property(property="reason", type="string", example="Promo de Mars")
      *    )
      * )
      * @OA\Response(
@@ -88,9 +90,39 @@ class GeneralSettingController extends AbstractController
             $setting = $this->generalSettingManager->updateOrCreate($data);
             $response = (new JsonHelper($setting, 'Paramètres enregistrés avec succès', 'success', 200, []))->serialize();
             return $this->json($response, 200, [], ['groups' => ['setting']]);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', 500, []))->serialize();
             return $this->json($response, 500, [], ['groups' => ['setting']]);
+        }
+    }
+
+    /**
+     * @Route("/general/history", name="get_general_settings_history", methods={"GET"},
+     * options={"description"="Récupérer l'historique des modifications", "permission"="SETTING:READ"})
+     * @OA\Response(
+     *     response=200,
+     *     description="Return the global general settings history",
+     *     @OA\JsonContent(
+     *        type="object",
+     *        @OA\Property(property="status", type="boolean", example="true"),
+     *        @OA\Property(property="message", type="string", example="success"),
+     *        @OA\Property(property="data", type="array", @OA\Items(ref=@Model(type=App\Entity\Extra\GeneralSettingHistory::class, groups={"setting_history"})))
+     *     )
+     * )
+     * @OA\Tag(name="Extra - Settings")
+     * @Security(name="Bearer")
+     */
+    public function getHistory(): JsonResponse
+    {
+        try {
+            $history = $this->generalSettingManager->getHistory();
+            $response = (new JsonHelper($history, null, 'success', 200, []))->serialize();
+            return $this->json($response, 200, [], ['groups' => ['setting_history']]);
+        }
+        catch (\Exception $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', 500, []))->serialize();
+            return $this->json($response, 500, [], ['groups' => ['setting_history']]);
         }
     }
 }
