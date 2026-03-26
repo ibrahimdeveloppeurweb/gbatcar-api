@@ -59,6 +59,15 @@ class ClientManager
         return $client;
     }
 
+    public function validate(Client $client): Client
+    {
+        $client->setStatus('Dossier Validé');
+        $client->setValidationDate(new \DateTimeImmutable());
+        $this->em->flush();
+
+        return $client;
+    }
+
     public function findByFilters(array $filters = []): array
     {
         return $this->clientRepository->findByFilters($filters);

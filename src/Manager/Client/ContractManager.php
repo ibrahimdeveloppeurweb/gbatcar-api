@@ -15,18 +15,21 @@ class ContractManager
     private $contractRepository;
     private $clientRepository;
     private $vehicleRepository;
+    private $paymentManager;
 
     public function __construct(
         EntityManagerInterface $em,
         ContractRepository $contractRepository,
         ClientRepository $clientRepository,
-        VehicleRepository $vehicleRepository
+        VehicleRepository $vehicleRepository,
+        PaymentManager $paymentManager
         )
     {
         $this->em = $em;
         $this->contractRepository = $contractRepository;
         $this->clientRepository = $clientRepository;
         $this->vehicleRepository = $vehicleRepository;
+        $this->paymentManager = $paymentManager;
     }
 
     public function create(object $data): Contract
@@ -48,6 +51,10 @@ class ContractManager
             throw new \Exception("Contract not found");
         }
 
+        if ($contract->getStatus() === 'VALIDÉ') {
+            throw new \Exception("Impossible de modifier un contrat validé.");
+        }
+
         return $this->save($contract, $data);
     }
 
@@ -59,10 +66,74 @@ class ContractManager
                 $contract->setClient($client);
         }
 
-        if (isset($data->vehicleId)) {
+        if (isset($data->vehicleId) && $data->vehicleId) {
             $vehicle = $this->vehicleRepository->findOneBy(['uuid' => $data->vehicleId]);
-            if ($vehicle)
+            if ($vehicle) {
                 $contract->setVehicle($vehicle);
+                if ($contract->getClient()) {
+                    $vehicle->setClient($contract->getClient());
+                }
+            }
+        }
+        else {
+            // Nullable vehicle
+            $contract->setVehicle(null);
+        }
+
+        // Handle multiple vehicle demands
+        if (isset($data->vehicleDemands) && is_array($data->vehicleDemands)) {
+            // Clear existing demands and free vehicles
+            foreach ($contract->getVehicleDemands() as $oldDemand) {
+                foreach ($oldDemand->getAssignedVehicles() as $oldV) {
+                    $oldV->setStatut('Disponible');
+                    $oldV->setClient(null);
+                }
+                $this->em->remove($oldDemand);
+            }
+            $contract->getVehicleDemands()->clear();
+
+            foreach ($data->vehicleDemands as $demandArray) {
+                // Decode from array or object
+                $demandData = (object)$demandArray;
+
+                $demand = new \App\Entity\Client\ContractVehicleDemand();
+
+                if (isset($demandData->brandId) && $demandData->brandId) {
+                    $brand = $this->em->getRepository(\App\Entity\Client\Brand::class)->find($demandData->brandId);
+                    if ($brand)
+                        $demand->setBrand($brand);
+                }
+
+                if (isset($demandData->modelId) && $demandData->modelId) {
+                    $model = $this->em->getRepository(\App\Entity\Client\VehicleModel::class)->find($demandData->modelId);
+                    if ($model)
+                        $demand->setVehicleModel($model);
+                }
+
+                if (isset($demandData->quantity)) {
+                    $demand->setQuantity((int)$demandData->quantity);
+                }
+                else {
+                    $demand->setQuantity(1);
+                }
+
+                // Associate specific physical vehicles if provided
+                if (isset($demandData->assignedVehicleIds) && is_array($demandData->assignedVehicleIds)) {
+                    foreach ($demandData->assignedVehicleIds as $vId) {
+                        $vehicle = $this->vehicleRepository->findOneBy(['uuid' => $vId]);
+                        if ($vehicle) {
+                            $demand->addAssignedVehicle($vehicle);
+                            $vehicle->setStatut('Assigné');
+                            if ($contract->getClient()) {
+                                $vehicle->setClient($contract->getClient());
+                            }
+                        }
+                    }
+                }
+
+                $contract->addVehicleDemand($demand);
+                $this->em->persist($demand);
+            }
         }
 
         if (isset($data->usageType))
@@ -100,18 +171,37 @@ class ContractManager
         if (isset($data->startDate)) {
             $startDate = new DateTimeImmutable($data->startDate);
             $contract->setStartDate($startDate);
-            
+
             // Auto-calculate end date
             $months = $contract->getDurationInMonths() ?: 0;
             $contract->setEndDate($startDate->modify("+$months month"));
         }
 
-        // Calculations
+        if (isset($data->fraisDossier))
+            $contract->setFraisDossier((float)$data->fraisDossier);
+
+        // Calculations — use correct number of periods based on payment frequency
         $daily = $contract->getDailyRate() ?: 0;
         $months = $contract->getDurationInMonths() ?: 0;
         $caution = $contract->getCaution() ?: 0;
+        $fees = $contract->getFraisDossier() ?: 0;
+        $frequency = $contract->getPaymentFrequency() ?: 'Monthly';
 
-        $total = ($daily * $months) + $caution;
+        if ($frequency === 'Monthly') {
+            $numberOfPeriods = $months;
+        }
+        elseif ($frequency === 'Weekly') {
+            $numberOfPeriods = $months * 4;
+        }
+        elseif ($frequency === 'Daily') {
+            $numberOfPeriods = $months * 30;
+        }
+        else {
+            $numberOfPeriods = $months;
+        }
+
+        // Total Exigible = Rent * Periods + Full Caution
+        $total = ($daily * $numberOfPeriods) + $caution;
         $contract->setTotalAmount($total);
         // $contract->setProjectedMargin($total * 0.25); // Placeholder formula
 
@@ -121,8 +211,54 @@ class ContractManager
         return $contract;
     }
 
+    public function validate(Contract $contract): Contract
+    {
+        $contract->setStatus('VALIDÉ');
+        $contract->setPaymentStatus('À jour');
+
+        $now = new DateTimeImmutable();
+        $contract->setStartDate($now);
+
+        // Recalculate end date based on duration
+        $months = $contract->getDurationInMonths() ?: 0;
+        $contract->setEndDate($now->modify("+$months month"));
+
+        // Update Client Status
+        if ($client = $contract->getClient()) {
+            $client->setStatus('Dossier Approuvé');
+        }
+        // Update Vehicle Status and Link to Client
+        if ($vehicle = $contract->getVehicle()) {
+            $vehicle->setStatut('Assigné');
+            if ($client = $contract->getClient()) {
+                $vehicle->setClient($client);
+            }
+            $this->em->persist($vehicle);
+        }
+
+        // Auto-create the initial deposit payment (Apport Initial) and File Fees
+        $caution = $contract->getCaution() ?: 0;
+        $fees = $contract->getFraisDossier() ?: 0;
+        $actualCaution = $caution - $fees;
+
+        if ($actualCaution > 0) {
+            $this->paymentManager->createInitialDeposit($contract, $actualCaution);
+        }
+        if ($fees > 0) {
+            $this->paymentManager->createFeePayment($contract, $fees);
+        }
+
+        $this->em->flush();
+
+        return $contract;
+    }
+
     public function delete(Contract $contract): Contract
     {
+        if ($contract->getStatus() === 'VALIDÉ') {
+            throw new \Exception("Impossible de supprimer un contrat validé.");
+        }
+
         $contract->setDeletedAt(new \DateTime());
         $this->em->flush();
         return $contract;

@@ -87,7 +87,7 @@ trait UserObjectNoCodeTrait
     }
 
     /**
-     * @Groups({"user", "admin", "setting", "compliance", "client"})
+     * @Groups({"user", "admin", "setting", "compliance", "client", "contract", "payment"})
      */
     public function getCreate(): ?string
     {

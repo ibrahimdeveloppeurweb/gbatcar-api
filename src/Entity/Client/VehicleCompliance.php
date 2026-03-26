@@ -101,7 +101,7 @@ class VehicleCompliance
 
     /**
      * @ORM\Column(type="date_immutable", nullable=true)
-     * @Groups({"vehicle", "compliance"})
+     * @Groups({"vehicle", "compliance", "client"})
      */
     private $technicalInspectionDeliveryDate;
 

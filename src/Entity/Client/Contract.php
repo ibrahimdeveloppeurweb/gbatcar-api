@@ -26,49 +26,44 @@ class Contract
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"contract", "payment", "maintenance"})
+     * @Groups({"contract", "payment", "maintenance", "client"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"contract", "payment", "maintenance", "vehicle"})
+     * @Groups({"contract", "payment", "maintenance", "vehicle", "client"})
      */
     private $reference;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract", "vehicle"})
+     * @Groups({"contract", "vehicle", "client"})
      */
     private $totalAmount;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle", "client"})
      */
     private $status;
 
-    /**
-     * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract", "vehicle"})
-     */
-    private $paidAmount;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "client"})
      */
     private $caution;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "client"})
      */
     private $nextPaymentAmount;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "client"})
      */
     private $unpaidAmount;
 
@@ -96,25 +91,25 @@ class Contract
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle", "client"})
      */
     private $paymentStatus;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle"})
      */
     private $progressPercentage;
 
     /**
      * @ORM\Column(type="integer", nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle"})
      */
     private $daysLate;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "vehicle"})
      */
     private $riskLevel;
 
@@ -128,7 +123,7 @@ class Contract
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"contract"})
+     * @Groups({"contract", "payment"})
      */
     private $paymentFrequency;
 
@@ -137,6 +132,12 @@ class Contract
      * @Groups({"contract"})
      */
     private $dailyRate;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"contract"})
+     */
+    private $fraisDossier;
 
     /**
      * @ORM\Column(type="integer", nullable=true)
@@ -217,42 +218,123 @@ class Contract
     /**
      * @ORM\ManyToOne(targetEntity=Client::class, inversedBy="contracts")
      * @ORM\JoinColumn(nullable=false)
-     * @Groups({"contract"})
+     * @Groups({"contract:client"})
      */
     private $client;
 
     /**
      * @ORM\ManyToOne(targetEntity=Vehicle::class, inversedBy="contracts")
-     * @ORM\JoinColumn(nullable=false)
-     * @Groups({"contract"})
+     * @ORM\JoinColumn(nullable=true)
+     * @Groups({"contract", "payment", "client"})
      */
     private $vehicle;
 
     /**
+     * @ORM\OneToMany(targetEntity=ContractVehicleDemand::class, mappedBy="contract", cascade={"persist", "remove"})
+     * @Groups({"contract", "payment", "client"})
+     */
+    private $vehicleDemands;
+
+    /**
      * @ORM\OneToMany(targetEntity=Payment::class, mappedBy="contract")
+     * @Groups({"contract:payments"})
+     * @ORM\OrderBy({"date" = "DESC", "id" = "DESC"})
      */
     private $payments;
 
     /**
+     * @ORM\OneToMany(targetEntity=PaymentSchedule::class, mappedBy="contract", cascade={"persist", "remove"})
+     * @Groups({"contract:schedules"})
+     * @ORM\OrderBy({"expectedDate" = "ASC"})
+     */
+    private $paymentSchedules;
+
+
+    /**
      * @ORM\OneToMany(targetEntity=Penalty::class, mappedBy="contract")
+     * @Groups({"contract"})
      */
     private $penalties;
 
     /**
      * @ORM\OneToMany(targetEntity=MaintenanceAlert::class, mappedBy="contract")
+     * @Groups({"contract"})
      */
     private $alerts;
+
+    /**
+     * @ORM\OneToMany(targetEntity=ContractDocument::class, mappedBy="contract", cascade={"persist", "remove"})
+     * @Groups({"contract"})
+     */
+    private $documents;
 
     public function __construct()
     {
         $this->payments = new ArrayCollection();
         $this->penalties = new ArrayCollection();
         $this->alerts = new ArrayCollection();
+        $this->documents = new ArrayCollection();
+        $this->vehicleDemands = new ArrayCollection();
+        $this->paymentSchedules = new ArrayCollection();
     }
 
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    /**
+     * @return Collection<int, ContractVehicleDemand>
+     */
+    public function getVehicleDemands(): Collection
+    {
+        return $this->vehicleDemands;
+    }
+
+    public function addVehicleDemand(ContractVehicleDemand $vehicleDemand): self
+    {
+        if (!$this->vehicleDemands->contains($vehicleDemand)) {
+            $this->vehicleDemands[] = $vehicleDemand;
+            $vehicleDemand->setContract($this);
+        }
+
+        return $this;
+    }
+
+    public function removeVehicleDemand(ContractVehicleDemand $vehicleDemand): self
+    {
+        $this->vehicleDemands->removeElement($vehicleDemand);
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PaymentSchedule>
+     */
+    public function getPaymentSchedules(): Collection
+    {
+        return $this->paymentSchedules;
+    }
+
+    public function addPaymentSchedule(PaymentSchedule $paymentSchedule): self
+    {
+        if (!$this->paymentSchedules->contains($paymentSchedule)) {
+            $this->paymentSchedules[] = $paymentSchedule;
+            $paymentSchedule->setContract($this);
+        }
+
+        return $this;
+    }
+
+    public function removePaymentSchedule(PaymentSchedule $paymentSchedule): self
+    {
+        if ($this->paymentSchedules->removeElement($paymentSchedule)) {
+            // set the owning side to null (unless already changed)
+            if ($paymentSchedule->getContract() === $this) {
+                $paymentSchedule->setContract(null);
+            }
+        }
+
+        return $this;
     }
 
     /**
@@ -421,17 +503,8 @@ class Contract
         return $this;
     }
 
-    public function getPaidAmount(): ?float
-    {
-        return $this->paidAmount;
-    }
 
-    public function setPaidAmount(?float $paidAmount): self
-    {
-        $this->paidAmount = $paidAmount;
 
-        return $this;
-    }
 
     public function getCaution(): ?float
     {
@@ -441,6 +514,18 @@ class Contract
     public function setCaution(?float $caution): self
     {
         $this->caution = $caution;
+
+        return $this;
+    }
+
+    public function getFraisDossier(): ?float
+    {
+        return $this->fraisDossier;
+    }
+
+    public function setFraisDossier(?float $fraisDossier): self
+    {
+        $this->fraisDossier = $fraisDossier;
 
         return $this;
     }
@@ -731,5 +816,102 @@ class Contract
         $this->prixDeVente = $prixDeVente;
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, ContractDocument>
+     * @Groups({"contract", "payment"})
+     */
+    public function getDocuments(): Collection
+    {
+        return $this->documents;
+    }
+
+    public function addDocument(ContractDocument $document): self
+    {
+        if (!$this->documents->contains($document)) {
+            $this->documents[] = $document;
+            $document->setContract($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDocument(ContractDocument $document): self
+    {
+        if ($this->documents->removeElement($document)) {
+            // set the owning side to null (unless already changed)
+            if ($document->getContract() === $this) {
+                $document->setContract(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @Groups({"contract", "vehicle", "client"})
+     */
+    public function getPaidAmount(): ?float
+    {
+        $totalPaid = 0;
+        $fees = $this->getFraisDossier() ?: 0;
+
+        $this->payments->map(function ($payment) use (&$totalPaid) {
+            if (in_array($payment->getStatus(), ['VALIDÉ', 'Validé', 'VALIDATED'])) {
+                $totalPaid += $payment->getAmount();
+            }
+        });
+
+        return max(0, $totalPaid - $fees);
+    }
+
+    /**
+     * @Groups({"contract", "vehicle", "client"})
+     */
+    public function getVehicleCount(): int
+    {
+        $count = 0;
+        if ($this->vehicle) {
+            return 1;
+        }
+
+        foreach ($this->vehicleDemands as $demand) {
+            $count += ($demand->getQuantity() ?: 0);
+        }
+
+        return $count ?: 1;
+    }
+
+    /**
+     * @Groups({"contract", "payment", "client", "payment:contract"})
+     */
+    public function getVehicleSummary(): string
+    {
+        $vehicles = [];
+
+        // Single vehicle (legacy/specific)
+        if ($this->getVehicle()) {
+            $immat = $this->getVehicle()->getImmatriculation();
+            if ($immat) {
+                $vehicles[] = $immat;
+            }
+        }
+
+        // Fleet/Demands
+        if ($this->getVehicleDemands()) {
+            foreach ($this->getVehicleDemands() as $demand) {
+                if ($demand->getAssignedVehicles()) {
+                    foreach ($demand->getAssignedVehicles() as $vehicle) {
+                        $immat = $vehicle->getImmatriculation();
+                        if ($immat && !in_array($immat, $vehicles)) {
+                            $vehicles[] = $immat;
+                        }
+                    }
+                }
+            }
+        }
+
+        return count($vehicles) > 0 ? implode(', ', $vehicles) : 'Aucun véhicule';
     }
 }

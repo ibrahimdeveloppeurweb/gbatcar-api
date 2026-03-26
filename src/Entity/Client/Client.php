@@ -103,6 +103,12 @@ class Client
     private $birthDate;
 
     /**
+     * @ORM\Column(type="datetime_immutable", nullable=true)
+     * @Groups({"client"})
+     */
+    private $validationDate;
+
+    /**
      * @ORM\Column(type="string", length=255, nullable=true)
      * @Groups({"client"})
      */
@@ -298,6 +304,12 @@ class Client
      */
     private $fines;
 
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"client"})
+     */
+    private $initialDeposit;
+
     // --- RELATIONS ---
 
     /**
@@ -308,6 +320,7 @@ class Client
 
     /**
      * @ORM\OneToMany(targetEntity=Contract::class, mappedBy="client")
+     * @Groups({"client"})
      */
     private $contracts;
 
@@ -459,6 +472,63 @@ class Client
     public function getVehicles(): Collection
     {
         return $this->vehicles;
+    }
+
+    /**
+     * @Groups({"client"})
+     */
+    public function getActiveContract(): ?Contract
+    {
+        $contracts = $this->contracts->toArray();
+        if (empty($contracts)) {
+            return null;
+        }
+
+        // Sort by ID DESC to get the latest
+        usort($contracts, function ($a, $b) {
+            return $b->getId() <=> $a->getId();
+        });
+
+        // Take the latest one that is VALIDÉ
+        foreach ($contracts as $contract) {
+            if ($contract instanceof Contract && $contract->getStatus() === 'VALIDÉ') {
+                return $contract;
+            }
+        }
+
+        // Fallback: Latest one
+        $latest = $contracts[0] ?? null;
+        return $latest instanceof Contract ? $latest : null;
+    }
+
+    /**
+     * @Groups({"client"})
+     */
+    public function getVehicle(): ?Vehicle
+    {
+        // 1. Direct relationship (if set)
+        if (!$this->vehicles->isEmpty()) {
+            return $this->vehicles->first();
+        }
+
+        // 2. Fallback: Take the vehicle from the most recent contract
+        $contracts = $this->contracts->toArray();
+        if (empty($contracts)) {
+            return null;
+        }
+
+        // Simple sort by ID desc to get the latest
+        usort($contracts, function ($a, $b) {
+            return $b->getId() <=> $a->getId();
+        });
+
+        foreach ($contracts as $contract) {
+            if ($contract->getVehicle()) {
+                return $contract->getVehicle();
+            }
+        }
+
+        return null;
     }
 
     public function addVehicle(Vehicle $vehicle): self
@@ -947,6 +1017,30 @@ class Client
     public function setLicenseScanUrl(?string $licenseScanUrl): self
     {
         $this->licenseScanUrl = $licenseScanUrl;
+
+        return $this;
+    }
+
+    public function getValidationDate(): ?\DateTimeImmutable
+    {
+        return $this->validationDate;
+    }
+
+    public function setValidationDate(?\DateTimeImmutable $validationDate): self
+    {
+        $this->validationDate = $validationDate;
+
+        return $this;
+    }
+
+    public function getInitialDeposit(): ?float
+    {
+        return $this->initialDeposit;
+    }
+
+    public function setInitialDeposit(?float $initialDeposit): self
+    {
+        $this->initialDeposit = $initialDeposit;
 
         return $this;
     }

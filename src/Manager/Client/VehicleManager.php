@@ -87,10 +87,28 @@ class VehicleManager
     private function hydrate(Vehicle $vehicle, object $data): void
     {
         // Informations de base
-        if (isset($data->marque))
+        if (isset($data->marque)) {
             $vehicle->setMarque($data->marque);
-        if (isset($data->modele))
+            $brand = $this->em->getRepository(\App\Entity\Client\Brand::class)->findOneBy(['name' => $data->marque]);
+            if ($brand)
+                $vehicle->setBrand($brand);
+            else
+                $vehicle->setBrand(null);
+        }
+        if (isset($data->modele)) {
             $vehicle->setModele($data->modele);
+            $modelClass = \App\Entity\Client\VehicleModel::class;
+            if (isset($brand) && $brand) {
+                $model = $this->em->getRepository($modelClass)->findOneBy(['name' => $data->modele, 'brand' => $brand]);
+                if ($model)
+                    $vehicle->setVehicleModel($model);
+                else
+                    $vehicle->setVehicleModel(null);
+            }
+            else {
+                $vehicle->setVehicleModel(null);
+            }
+        }
         if (isset($data->annee))
             $vehicle->setAnnee((int)$data->annee);
         if (isset($data->couleur))
