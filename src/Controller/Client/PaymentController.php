@@ -31,8 +31,9 @@ class PaymentController extends AbstractController
      */
     public function index(Request $request)
     {
-        $items = $this->paymentRepository->findAll();
-        return $this->json($items, 200, [], ['groups' => ["payment"]]);
+        $filters = $request->query->all();
+        $items = $this->paymentRepository->findByFilters($filters);
+        return $this->json($items, 200, [], ['groups' => ["payment", "payment:contract", "contract:client"]]);
     }
 
     /**
@@ -41,7 +42,18 @@ class PaymentController extends AbstractController
      */
     public function new (Request $request)
     {
-    // To be implemented with PaymentManager
+        $raw = $request->getContent();
+        $data = $raw ? json_decode($raw) : (object)$request->request->all();
+        if (!$data)
+            $data = new \stdClass();
+
+        try {
+            $payment = $this->paymentManager->create($data, $request);
+            return $this->json($payment, 201, [], ['groups' => ['payment', 'payment:contract', 'contract:client']]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la création du paiement.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -54,7 +66,7 @@ class PaymentController extends AbstractController
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
-        return $this->json($item, 200, [], ['groups' => ["payment"]]);
+        return $this->json($item, 200, [], ['groups' => ["payment", "payment:contract", "contract:client"]]);
     }
 
     /**
@@ -63,7 +75,18 @@ class PaymentController extends AbstractController
      */
     public function edit(Request $request, $uuid)
     {
-    // To be implemented with PaymentManager
+        $raw = $request->getContent();
+        $data = $raw ? json_decode($raw) : (object)$request->request->all();
+        if (!$data)
+            $data = new \stdClass();
+
+        try {
+            $payment = $this->paymentManager->update($uuid, $data, $request);
+            return $this->json($payment, 200, [], ['groups' => ['payment', 'payment:contract', 'contract:client']]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la modification.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -72,7 +95,18 @@ class PaymentController extends AbstractController
      */
     public function delete($uuid)
     {
-    // To be implemented with PaymentManager
+        $payment = $this->paymentRepository->findOneByUuid($uuid);
+        if (!$payment) {
+            return $this->json(['message' => 'Paiement introuvable.'], 404);
+        }
+
+        try {
+            $this->paymentManager->delete($payment);
+            return $this->json(['message' => 'Paiement supprimé success'], 200);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la suppression.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -81,7 +115,22 @@ class PaymentController extends AbstractController
      */
     public function changeStatus(Request $request, $uuid)
     {
-    // To be implemented
+        $payment = $this->paymentRepository->findOneByUuid($uuid);
+        if (!$payment) {
+            return $this->json(['message' => 'Paiement introuvable.'], 404);
+        }
+
+        $raw = $request->getContent();
+        $data = json_decode($raw);
+        $status = $data->status ?? 'VALIDÉ';
+
+        try {
+            $payment = $this->paymentManager->toggleStatus($payment, $status);
+            return $this->json($payment, 200, [], ['groups' => ['payment', 'payment:contract', 'contract:client']]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors du changement de statut.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**

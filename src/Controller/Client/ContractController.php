@@ -2,8 +2,13 @@
 
 namespace App\Controller\Client;
 
+use App\Entity\Client\ContractDocument;
 use App\Manager\Client\ContractManager;
 use App\Repository\Client\ContractRepository;
+use App\Repository\Client\ContractDocumentRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -15,14 +20,20 @@ class ContractController extends AbstractController
 {
     private $contractRepository;
     private $contractManager;
+    private $em;
+    private $documentRepository;
 
     public function __construct(
         ContractRepository $contractRepository,
-        ContractManager $contractManager
+        ContractManager $contractManager,
+        EntityManagerInterface $em,
+        ContractDocumentRepository $documentRepository
         )
     {
         $this->contractRepository = $contractRepository;
         $this->contractManager = $contractManager;
+        $this->em = $em;
+        $this->documentRepository = $documentRepository;
     }
 
     /**
@@ -33,7 +44,7 @@ class ContractController extends AbstractController
     {
         $filters = $request->query->all();
         $items = $this->contractRepository->findByFilters($filters);
-        return $this->json($items, 200, [], ['groups' => ["contract"]]);
+        return $this->json($items, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
     }
 
     /**
@@ -44,7 +55,7 @@ class ContractController extends AbstractController
     {
         $data = json_decode($request->getContent());
         $item = $this->contractManager->create($data);
-        return $this->json($item, 201, [], ['groups' => ["contract"]]);
+        return $this->json($item, 201, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
     }
 
     /**
@@ -67,7 +78,7 @@ class ContractController extends AbstractController
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
-        return $this->json($item, 200, [], ['groups' => ["contract"]]);
+        return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
     }
 
     /**
@@ -77,8 +88,13 @@ class ContractController extends AbstractController
     public function edit(Request $request, $uuid)
     {
         $data = json_decode($request->getContent());
-        $item = $this->contractManager->update($uuid, $data);
-        return $this->json($item, 200, [], ['groups' => ["contract"]]);
+        try {
+            $item = $this->contractManager->update($uuid, $data);
+            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la modification : ' . $e->getMessage()], 400);
+        }
     }
 
     /**
@@ -91,8 +107,13 @@ class ContractController extends AbstractController
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
-        $this->contractManager->delete($item);
-        return $this->json(['message' => 'Deleted successfully'], 200);
+        try {
+            $this->contractManager->delete($item);
+            return $this->json(['message' => 'Deleted successfully'], 200);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la suppression : ' . $e->getMessage()], 400);
+        }
     }
 
     /**
@@ -101,7 +122,18 @@ class ContractController extends AbstractController
      */
     public function validateContract(Request $request, $uuid)
     {
-    // To be implemented
+        $item = $this->contractRepository->findOneBy(['uuid' => $uuid]);
+        if (!$item) {
+            return $this->json(['message' => 'Contrat introuvable'], 404);
+        }
+
+        try {
+            $this->contractManager->validate($item);
+            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la validation : ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -120,5 +152,108 @@ class ContractController extends AbstractController
     public function getLateList(Request $request)
     {
         return $this->json(['data' => []], 200);
+    }
+
+    /**
+     * @Route("/{uuid}/documents", name="upload_contract_document", methods={"POST"},
+     * options={"description"="Upload document(s) pour un contrat", "permission"="CONTRACT:DOCUMENT"})
+     */
+    public function uploadDocument(Request $request, string $uuid)
+    {
+        $contract = $this->contractRepository->findOneByUuid($uuid);
+        if (!$contract) {
+            return $this->json(['message' => 'Contrat introuvable'], 404);
+        }
+
+        $files = $request->files->get('files');
+        $libelle = $request->request->get('libelle');
+
+        if (!$files) {
+            return $this->json(['message' => 'Aucun fichier reçu'], 400);
+        }
+        if (!is_array($files)) {
+            $files = [$files];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/uploads/contract/' . $uuid . '/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $saved = [];
+        foreach ($files as $file) {
+            $originalName = $file->getClientOriginalName();
+            $mimeType = $file->getClientMimeType();
+            $size = $file->getSize();
+            $storedName = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+
+            $file->move($uploadDir, $storedName);
+
+            $doc = new ContractDocument();
+            $doc->setLibelle($libelle);
+            $doc->setOriginalName($originalName);
+            $doc->setStoredName($storedName);
+            $doc->setMimeType($mimeType);
+            $doc->setSize($size);
+            $doc->setContract($contract);
+            $this->em->persist($doc);
+            $saved[] = ['name' => $originalName, 'uuid' => $doc->getUuid()];
+        }
+        $this->em->flush();
+        return $this->json(['message' => count($saved) . ' fichier(s) ajouté(s)', 'files' => $saved], 201);
+    }
+
+    /**
+     * @Route("/{cUuid}/documents/{dUuid}/download", name="download_contract_document", methods={"GET"},
+     * options={"description"="Télécharger un document du contrat", "permission"="CONTRACT:DOCUMENT"})
+     */
+    public function downloadDocument(string $cUuid, string $dUuid)
+    {
+        try {
+            $doc = $this->documentRepository->findOneBy(['uuid' => $dUuid]);
+            if (!$doc) {
+                return $this->json(['message' => 'Document introuvable'], 404);
+            }
+            $path = $this->getParameter('kernel.project_dir') . '/public/uploads/contract/' . $cUuid . '/' . $doc->getStoredName();
+            if (!file_exists($path)) {
+                return $this->json(['message' => 'Fichier introuvable sur le serveur'], 404);
+            }
+            $response = new BinaryFileResponse($path);
+
+            if ($doc->getMimeType()) {
+                $response->headers->set('Content-Type', $doc->getMimeType());
+            }
+
+            $fallbackName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $doc->getOriginalName());
+
+            $response->setContentDisposition(
+                ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                $doc->getOriginalName(),
+                $fallbackName
+            );
+            return $response;
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors du téléchargement : ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * @Route("/{cUuid}/documents/{dUuid}/delete", name="delete_contract_document", methods={"DELETE"},
+     * options={"description"="Supprimer un document du contrat", "permission"="CONTRACT:DOCUMENT"})
+     */
+    public function deleteDocument(string $cUuid, string $dUuid)
+    {
+        $doc = $this->documentRepository->findOneBy(['uuid' => $dUuid]);
+        if (!$doc) {
+            return $this->json(['message' => 'Document introuvable'], 404);
+        }
+        $path = $this->getParameter('kernel.project_dir') . '/public/uploads/contract/' . $cUuid . '/' . $doc->getStoredName();
+        if (file_exists($path)) {
+            @unlink($path);
+        }
+        $this->em->remove($doc);
+        $this->em->flush();
+        return $this->json(['message' => 'Document supprimé'], 200);
     }
 }

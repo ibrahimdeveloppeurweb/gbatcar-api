@@ -75,23 +75,28 @@ class VehicleRepository extends ServiceEntityRepository
         // Statut du véhicule
         if (isset($data->status) && TypeVariable::is_not_null($data->status) && $data->status) {
             $query = $query
-                ->andWhere('v.statut = :status')
-                ->setParameter('status', $this->type->trim($data->status));
+                ->andWhere('LOWER(v.statut) = :status')
+                ->setParameter('status', strtolower($this->type->trim($data->status)));
         }
 
-        // Assignation Client
+        // Assignation Client (Improved to support both direct assignment and fleet demands)
         if (isset($data->assignedClient) && TypeVariable::is_not_null($data->assignedClient) && $data->assignedClient) {
+            $clientTerm = '%' . strtolower($this->type->trim($data->assignedClient)) . '%';
             $query = $query
-                ->leftJoin('v.client', 'c')
-                ->andWhere('LOWER(c.lastName) LIKE :client OR LOWER(c.firstName) LIKE :client')
-                ->setParameter('client', '%' . strtolower($this->type->trim($data->assignedClient)) . '%');
+                ->leftJoin('v.client', 'c1')
+                ->leftJoin('v.vehicleDemands', 'vd')
+                ->leftJoin('vd.contract', 'ctr')
+                ->leftJoin('ctr.client', 'c2')
+                ->andWhere('(LOWER(c1.lastName) LIKE :clientTerm OR LOWER(c1.firstName) LIKE :clientTerm) OR (LOWER(c2.lastName) LIKE :clientTerm OR LOWER(c2.firstName) LIKE :clientTerm)')
+                ->setParameter('clientTerm', $clientTerm)
+                ->addGroupBy('v.id'); // Vital for PK in most SQL modes
         }
 
         // Santé Paiement
         if (isset($data->paymentStatus) && TypeVariable::is_not_null($data->paymentStatus) && $data->paymentStatus) {
             $query = $query
-                ->andWhere('v.paymentStatus = :paymentStatus')
-                ->setParameter('paymentStatus', $this->type->trim($data->paymentStatus));
+                ->andWhere('LOWER(v.paymentStatus) = :paymentStatus')
+                ->setParameter('paymentStatus', strtolower($this->type->trim($data->paymentStatus)));
         }
 
         // Année Min/Max
@@ -116,6 +121,33 @@ class VehicleRepository extends ServiceEntityRepository
         }
         if (isset($data->priceMax) && TypeVariable::is_not_null($data->priceMax) && $data->priceMax) {
             $query = $query->andWhere('v.prixDeVente <= :priceMax')->setParameter('priceMax', (float)$this->type->trim($data->priceMax));
+        }
+
+        // Limit
+        if (isset($data->limit) && (int)$data->limit > 0) {
+            $query->setMaxResults((int)$data->limit);
+        }
+
+        // Filtre spécifique pour n'afficher que les véhicules SANS contrat actif
+        if (isset($data->available_only) && $data->available_only == 'true') {
+            // Un véhicule est considéré comme disponible s'il n'a AUCUN contrat 
+            // avec un statut qui n'est pas "Terminé", "Annulé" ou "Rupture".
+            $subQuery = $this->_em->createQueryBuilder()
+                ->select('cv.id')
+                ->from('App\Entity\Client\Contract', 'c')
+                ->join('c.vehicle', 'cv')
+                ->where('c.status IN (:active_statuses)')
+                ->andWhere('c.deletedAt IS NULL');
+
+            // Si on est en édition, on ignore le contrat actuel pour qu'il ne s'auto-exclue pas
+            if (isset($data->current_contract_uuid) && !empty($data->current_contract_uuid)) {
+                $subQuery->andWhere('c.uuid != :current_contract_uuid');
+                $query->setParameter('current_contract_uuid', $data->current_contract_uuid, 'uuid');
+            }
+
+            $query = $query
+                ->andWhere($query->expr()->notIn('v.id', $subQuery->getDQL()))
+                ->setParameter('active_statuses', ['NEW', 'EN_COURS', 'VALIDÉ']);
         }
 
         $query = $query->orderBy('v.createdAt', 'DESC');
@@ -261,10 +293,10 @@ class VehicleRepository extends ServiceEntityRepository
 
         // 5. Conformité Assurance (Dynamic Percentage)
         $sqlCompliance = "
-            SELECT COUNT(DISTINCT v.id) as insured_count 
+            SELECT COUNT(DISTINCT v.id) as insured_count
             FROM vehicle v
             JOIN vehicle_compliance_document doc ON doc.vehicle_id = v.id
-            WHERE LOWER(doc.type) LIKE '%assurance%' 
+            WHERE LOWER(doc.type) LIKE '%assurance%'
             AND doc.end_date >= CURRENT_DATE()
             AND doc.deleted_at IS NULL
             AND v.deleted_at IS NULL

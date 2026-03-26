@@ -99,7 +99,7 @@ class Penalty
     private $client;
 
     /**
-     * @ORM\ManyToOne(targetEntity=Vehicle::class)
+     * @ORM\ManyToOne(targetEntity=Vehicle::class, inversedBy="penalties")
      * @ORM\JoinColumn(nullable=true)
      * @Groups({"penalty"})
      */

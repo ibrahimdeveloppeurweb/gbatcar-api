@@ -62,8 +62,22 @@ class ContractRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['status'])) {
-            $qb->andWhere('c.status = :status')
-                ->setParameter('status', $filters['status']);
+            $status = $filters['status'];
+            if ($status === 'VALIDÉ') {
+                $qb->andWhere('c.status IN (:statuses) OR LOWER(c.status) IN (:lStatuses)')
+                    ->setParameter('statuses', ['VALIDÉ', 'ACTIVE', 'EN COURS', 'VALIDATED'])
+                    ->setParameter('lStatuses', ['validé', 'active', 'en cours', 'validated']);
+            }
+            elseif ($status === 'NEW') {
+                $qb->andWhere('c.status IN (:statuses) OR LOWER(c.status) IN (:lStatuses)')
+                    ->setParameter('statuses', ['NEW', 'PENDING', 'En Attente'])
+                    ->setParameter('lStatuses', ['new', 'pending', 'en attente']);
+            }
+            else {
+                $qb->andWhere('c.status = :status OR LOWER(c.status) = :lStatus')
+                    ->setParameter('status', $status)
+                    ->setParameter('lStatus', mb_strtolower($status));
+            }
         }
 
         if (!empty($filters['paymentStatus'])) {

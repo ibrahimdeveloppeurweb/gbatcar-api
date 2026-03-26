@@ -33,7 +33,7 @@ class ClientController extends AbstractController
     {
         $filters = $request->query->all();
         $items = $this->clientManager->findByFilters($filters);
-        return $this->json($items, 200, [], ['groups' => ["client", "contract", "payment"]]);
+        return $this->json($items, 200, [], $this->getContext(["client", "contract", "payment"]));
     }
 
     /**
@@ -43,14 +43,14 @@ class ClientController extends AbstractController
     public function dashboard()
     {
         $data = $this->clientManager->getDashboardData();
-        return $this->json($data, 200, [], ['groups' => ["client", "contract", "payment"]]);
+        return $this->json($data, 200, [], $this->getContext(["client", "contract", "payment"]));
     }
 
     /**
      * @Route("/new", name="new_client", methods={"POST"}, 
      * options={"description"="Ajouter un nouveau client", "permission"="CLIENT:NEW"})
      */
-    public function new(Request $request)
+    public function new (Request $request)
     {
         $raw = $request->getContent();
         $data = $raw ? json_decode($raw) : (object)$request->request->all();
@@ -59,7 +59,7 @@ class ClientController extends AbstractController
 
         try {
             $client = $this->clientManager->create($data, $request);
-            return $this->json($client, 201, [], ['groups' => ["client"]]);
+            return $this->json($client, 201, [], $this->getContext());
         }
         catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la création.', 'details' => $e->getMessage()], 500);
@@ -76,7 +76,7 @@ class ClientController extends AbstractController
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
-        return $this->json($item, 200, [], ['groups' => ["client"]]);
+        return $this->json($item, 200, [], $this->getContext());
     }
 
     /**
@@ -117,5 +117,35 @@ class ClientController extends AbstractController
         catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la suppression.', 'details' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * @Route("/{uuid}/validate", name="validate_client", methods={"POST", "PUT"},
+     * options={"description"="Valider un client", "permission"="CLIENT:VALIDATE"})
+     */
+    public function validateClient(Request $request, $uuid)
+    {
+        $client = $this->clientRepository->findOneByUuid($uuid);
+        if (!$client) {
+            return $this->json(['message' => 'Client introuvable.'], 404);
+        }
+
+        try {
+            $this->clientManager->validate($client);
+            return $this->json($client, 200, [], $this->getContext());
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la validation : ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function getContext(array $groups = ["client"]): array
+    {
+        return [
+            'groups' => $groups,
+            'circular_reference_handler' => function ($object) {
+            return method_exists($object, 'getId') ? $object->getId() : null;
+        }
+        ];
     }
 }

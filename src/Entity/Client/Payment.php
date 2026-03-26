@@ -20,47 +20,53 @@ class Payment
     use SoftDeleteableEntity;
     use UserObjectNoCodeTrait;
 
+    const ETAT = [
+        'VALIDÉ' => 'VALIDÉ',
+        'INVALIDE' => 'INVALIDE',
+        'REJETE' => 'REJETE'
+    ];
+
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"payment"})
+     * @Groups({"payment", "contract"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"payment"})
+     * @Groups({"payment", "contract"})
      */
     private $reference;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"payment"})
+     * @Groups({"payment", "contract"})
      */
     private $amount;
 
     /**
      * @ORM\Column(type="datetime_immutable", nullable=true)
-     * @Groups({"payment"})
+     * @Groups({"payment", "contract"})
      */
     private $date;
 
     /**
-     * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"payment"})
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"payment", "contract"})
      */
     private $period;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"payment"})
+     * @Groups({"payment", "contract"})
      */
     private $method;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"payment"})
+     * @Groups({"payment", "contract"})
      */
     private $status;
 
@@ -78,7 +84,7 @@ class Payment
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"payment"})
+     * @Groups({"payment", "contract"})
      */
     private $recordedBy;
 
@@ -93,7 +99,7 @@ class Payment
     /**
      * @ORM\ManyToOne(targetEntity=Contract::class, inversedBy="payments")
      * @ORM\JoinColumn(nullable=false)
-     * @Groups({"payment"})
+     * @Groups({"payment:contract"})
      */
     private $contract;
 

@@ -51,8 +51,10 @@ class ClientRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('c')
             ->leftJoin('c.vehicles', 'v')
+            ->leftJoin('v.compliance', 'comp')
             ->leftJoin('c.contracts', 'ct')
             ->addSelect('v')
+            ->addSelect('comp')
             ->addSelect('ct');
 
         if (!empty($filters['search'])) {
@@ -72,9 +74,9 @@ class ClientRepository extends ServiceEntityRepository
                     ->andWhere('c.unpaidAmount > 0')
                     ->setParameter('statuses', ['Dossier Approuvé', 'En Cours de Contrat']);
             }
-            elseif ($status === 'En Attente Validation' || $status === 'En attente de Validation') {
-                $qb->andWhere('c.status = :status')
-                    ->setParameter('status', 'En attente de Validation');
+            elseif ($status === 'En Attente Validation' || $status === 'En attente de Validation' || $status === 'Dossier Validé') {
+                $qb->andWhere('c.status IN (:statuses)')
+                    ->setParameter('statuses', ['En attente de Validation', 'Dossier Validé']);
             }
             else {
                 $qb->andWhere('c.status = :status')
@@ -99,7 +101,7 @@ class ClientRepository extends ServiceEntityRepository
             }
             elseif ($fStatus === 'Aucun (En Attente)') {
                 $qb->andWhere('c.status IN (:fStatuses)')
-                    ->setParameter('fStatuses', ['En attente de Validation', 'Prospect']);
+                    ->setParameter('fStatuses', ['En attente de Validation', 'Prospect', 'Dossier Validé']);
             }
         }
 
@@ -158,7 +160,7 @@ class ClientRepository extends ServiceEntityRepository
             elseif ($row['status'] === 'Litige / Bloqué') {
                 $distribution['En Retard'] += (int)$row['count'];
             }
-            elseif (in_array($row['status'], ['En attente de Validation', 'Prospect'])) {
+            elseif (in_array($row['status'], ['En attente de Validation', 'Prospect', 'Dossier Validé'])) {
                 $distribution['En Attente'] += (int)$row['count'];
             }
             elseif ($row['status'] === 'Inactif') {
@@ -224,6 +226,18 @@ class ClientRepository extends ServiceEntityRepository
             'riskyClients' => $riskyClients,
             'newClients' => $newClients
         ];
+    }
+    public function findOneByUuid($uuid): ?Client
+    {
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.vehicles', 'v')
+            ->leftJoin('v.compliance', 'comp')
+            ->leftJoin('c.contracts', 'ct')
+            ->addSelect('v', 'comp', 'ct')
+            ->andWhere('c.uuid = :uuid')
+            ->setParameter('uuid', $uuid, 'uuid')
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
 // /**

@@ -47,32 +47,60 @@ class PaymentRepository extends ServiceEntityRepository
         }
     }
 
-    // /**
-    //  * @return Payment[] Returns an array of Payment objects
-    //  */
-    /*
-    public function findByExampleField($value)
+    public function findByFilters(array $filters): array
     {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.exampleField = :val')
-            ->setParameter('val', $value)
-            ->orderBy('p.id', 'ASC')
-            ->setMaxResults(10)
-            ->getQuery()
-            ->getResult()
-        ;
-    }
-    */
+        $limit = isset($filters['count']) ? (int)$filters['count'] : 20;
+        $search = $filters['search'] ?? null;
+        $method = $filters['method'] ?? null;
+        $status = $filters['status'] ?? null;
+        $dateMin = $filters['dateMin'] ?? null;
+        $dateMax = $filters['dateMax'] ?? null;
+        $amountMin = $filters['amountMin'] ?? null;
+        $amountMax = $filters['amountMax'] ?? null;
 
-    /*
-    public function findOneBySomeField($value): ?Payment
-    {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.exampleField = :val')
-            ->setParameter('val', $value)
+        $qb = $this->createQueryBuilder('p')
+            ->leftJoin('p.client', 'c')
+            ->leftJoin('p.contract', 'ct')
+            ->addSelect('c', 'ct');
+
+        if ($search) {
+            $qb->andWhere('p.reference LIKE :search OR c.lastName LIKE :search OR c.firstName LIKE :search OR ct.reference LIKE :search')
+                ->setParameter('search', '%' . $search . '%');
+        }
+
+        if ($method) {
+            $qb->andWhere('p.method = :method')
+                ->setParameter('method', $method);
+        }
+
+        if ($status) {
+            $qb->andWhere('p.status = :status')
+                ->setParameter('status', $status);
+        }
+
+        if ($dateMin) {
+            $qb->andWhere('p.date >= :dateMin')
+                ->setParameter('dateMin', $dateMin);
+        }
+
+        if ($dateMax) {
+            $qb->andWhere('p.date <= :dateMax')
+                ->setParameter('dateMax', $dateMax);
+        }
+
+        if ($amountMin !== null) {
+            $qb->andWhere('p.amount >= :amountMin')
+                ->setParameter('amountMin', $amountMin);
+        }
+
+        if ($amountMax !== null) {
+            $qb->andWhere('p.amount <= :amountMax')
+                ->setParameter('amountMax', $amountMax);
+        }
+
+        return $qb->orderBy('p.id', 'DESC')
+            ->setMaxResults($limit)
             ->getQuery()
-            ->getOneOrNullResult()
-        ;
+            ->getResult();
     }
-    */
 }

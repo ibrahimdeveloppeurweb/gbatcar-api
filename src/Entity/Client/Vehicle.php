@@ -32,31 +32,31 @@ class Vehicle
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment"})
      */
     private $immatriculation;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment"})
      */
     private $marque;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment"})
      */
     private $modele;
 
     /**
      * @ORM\Column(type="integer", nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "demand"})
      */
     private $annee;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "demand"})
      */
     private $couleur;
 
@@ -68,7 +68,7 @@ class Vehicle
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "contract"})
      */
     private $numeroChassis;
 
@@ -98,13 +98,13 @@ class Vehicle
 
     /**
      * @ORM\Column(type="integer", nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client"})
      */
     private $kilometrage;
 
     /**
      * @ORM\Column(type="integer", nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client"})
      */
     private $prochainEntretien;
 
@@ -134,13 +134,13 @@ class Vehicle
 
     /**
      * @ORM\Column(type="text", nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client"})
      */
     private $photo;
 
     /**
      * @ORM\Column(type="json", nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client"})
      */
     private $photos = [];
 
@@ -288,7 +288,23 @@ class Vehicle
      */
     private $visiteTechniqueUrl;
 
-    // --- RELATIONS ---
+    /**
+     * @ORM\ManyToOne(targetEntity=Brand::class)
+     * @Groups({"vehicle"})
+     */
+    private $brand;
+
+    /**
+     * @ORM\ManyToOne(targetEntity=VehicleModel::class)
+     * @Groups({"vehicle"})
+     */
+    private $vehicleModel;
+
+    /**
+     * @ORM\ManyToMany(targetEntity=ContractVehicleDemand::class, mappedBy="assignedVehicles")
+     * @Groups({"vehicle"})
+     */
+    private $vehicleDemands;
 
     /**
      * @ORM\ManyToOne(targetEntity=Client::class, inversedBy="vehicles")
@@ -316,7 +332,7 @@ class Vehicle
 
     /**
      * @ORM\OneToOne(targetEntity=VehicleCompliance::class, mappedBy="vehicle", cascade={"persist", "remove"})
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client"})
      */
     private $compliance;
 
@@ -339,6 +355,7 @@ class Vehicle
         $this->alerts = new ArrayCollection();
         $this->complianceDocuments = new ArrayCollection();
         $this->penalties = new ArrayCollection();
+        $this->vehicleDemands = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -389,6 +406,9 @@ class Vehicle
         return $this;
     }
 
+    /**
+     * @Groups({"vehicle", "contract", "demand"})
+     */
     public function getAnnee(): ?int
     {
         return $this->annee;
@@ -400,6 +420,9 @@ class Vehicle
         return $this;
     }
 
+    /**
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "demand"})
+     */
     public function getCouleur(): ?string
     {
         return $this->couleur;
@@ -422,6 +445,9 @@ class Vehicle
         return $this;
     }
 
+    /**
+     * @Groups({"vehicle", "contract", "demand"})
+     */
     public function getNumeroChassis(): ?string
     {
         return $this->numeroChassis;
@@ -599,6 +625,34 @@ class Vehicle
             if ($contract->getVehicle() === $this) {
                 $contract->setVehicle(null);
             }
+        }
+        return $this;
+    }
+
+    public function getBrand(): ?Brand
+    {
+        return $this->brand;
+    }
+
+    public function setBrand(?Brand $brand): self
+    {
+        $this->brand = $brand;
+        if ($brand) {
+            $this->marque = $brand->getName(); // Auto-sync legacy string
+        }
+        return $this;
+    }
+
+    public function getVehicleModel(): ?VehicleModel
+    {
+        return $this->vehicleModel;
+    }
+
+    public function setVehicleModel(?VehicleModel $vehicleModel): self
+    {
+        $this->vehicleModel = $vehicleModel;
+        if ($vehicleModel) {
+            $this->modele = $vehicleModel->getName(); // Auto-sync legacy string
         }
         return $this;
     }
@@ -978,6 +1032,30 @@ class Vehicle
                 $penalty->setVehicle(null);
             }
         }
+        return $this;
+    }
+
+    /**
+     * @return \Doctrine\Common\Collections\Collection<int, \App\Entity\Client\ContractVehicleDemand>
+     */
+    public function getVehicleDemands(): \Doctrine\Common\Collections\Collection
+    {
+        return $this->vehicleDemands;
+    }
+
+    public function addVehicleDemand(\App\Entity\Client\ContractVehicleDemand $vehicleDemand): self
+    {
+        if (!$this->vehicleDemands->contains($vehicleDemand)) {
+            $this->vehicleDemands[] = $vehicleDemand;
+        }
+
+        return $this;
+    }
+
+    public function removeVehicleDemand(\App\Entity\Client\ContractVehicleDemand $vehicleDemand): self
+    {
+        $this->vehicleDemands->removeElement($vehicleDemand);
+
         return $this;
     }
 }
