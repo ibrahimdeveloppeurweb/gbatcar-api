@@ -857,11 +857,11 @@ class Contract
         $totalPaid = 0;
         $fees = $this->getFraisDossier() ?: 0;
 
-        $this->payments->map(function ($payment) use (&$totalPaid) {
+        foreach ($this->payments as $payment) {
             if (in_array($payment->getStatus(), ['VALIDÉ', 'Validé', 'VALIDATED'])) {
                 $totalPaid += $payment->getAmount();
             }
-        });
+        }
 
         return max(0, $totalPaid - $fees);
     }
@@ -913,5 +913,114 @@ class Contract
         }
 
         return count($vehicles) > 0 ? implode(', ', $vehicles) : 'Aucun véhicule';
+    }
+
+    /**
+     * @Groups({"contract"})
+     */
+    public function getHasSchedules(): bool
+    {
+        return $this->paymentSchedules->count() > 0;
+    }
+
+    /**
+     * @Groups({"contract"})
+     */
+    public function getRiskAnalysis(): array
+    {
+        if ($this->getStatus() === 'SUSPENDU' || $this->getStatus() === 'SUSPENDED') {
+            return [
+                'level' => 'SUSPENDU',
+                'code' => 'SUSPENDED',
+                'reason' => 'Contrat en pause (Panne/Accident)',
+                'dpd' => 0,
+                'unpaidArrears' => 0,
+                'class' => 'text-secondary'
+            ];
+        }
+
+        if (!$this->getHasSchedules()) {
+            return [
+                'level' => 'NON DÉFINI',
+                'code' => 'NONE',
+                'reason' => 'Échéancier non généré',
+                'dpd' => 0,
+                'unpaidArrears' => 0,
+                'class' => 'text-muted'
+            ];
+        }
+
+        $today = new \DateTimeImmutable('today');
+        $oldestUnpaid = null;
+
+        foreach ($this->paymentSchedules as $schedule) {
+            if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() <= $today) {
+                if ($oldestUnpaid === null || $schedule->getExpectedDate() < $oldestUnpaid->getExpectedDate()) {
+                    $oldestUnpaid = $schedule;
+                }
+            }
+        }
+
+        $unpaidArrears = $this->getUnpaidArrears();
+
+        if ($oldestUnpaid) {
+            // Use diff for more accurate DPD
+            $diff = $today->diff($oldestUnpaid->getExpectedDate());
+            $dpd = (int)$diff->format('%a');
+
+            // Threshold: 10 days for critical
+            $isCritical = ($dpd >= 10) || ($this->getPaymentStatus() === 'Impayé définitif');
+            $level = $isCritical ? 'CRITIQUE' : 'ÉLEVÉ';
+            $class = $isCritical ? 'text-danger' : 'text-warning';
+
+            return [
+                'level' => $level,
+                'code' => $level,
+                'reason' => $dpd > 0 ? "En retard de $dpd jours" : "Échéance impayée aujourd'hui",
+                'dpd' => $dpd,
+                'unpaidArrears' => $unpaidArrears,
+                'class' => $class
+            ];
+        }
+
+        // Up to date: Check progress
+        $total = $this->getTotalAmount() ?: 1;
+        $paid = $this->getPaidAmount() ?: 0;
+        $progress = ($paid / $total) * 100;
+
+        if ($progress < 25) {
+            return [
+                'level' => 'MOYEN',
+                'code' => 'MOYEN',
+                'reason' => 'Période de probation (< 25%)',
+                'dpd' => 0,
+                'unpaidArrears' => $unpaidArrears,
+                'class' => 'text-info'
+            ];
+        }
+
+        return [
+            'level' => 'BAS',
+            'code' => 'BAS',
+            'reason' => 'Client à jour et fiable',
+            'dpd' => 0,
+            'unpaidArrears' => $unpaidArrears,
+            'class' => 'text-success'
+        ];
+    }
+
+    /**
+     * @Groups({"contract"})
+     */
+    public function getUnpaidArrears(): float
+    {
+        $total = 0;
+        $today = new \DateTimeImmutable('today');
+        foreach ($this->paymentSchedules as $schedule) {
+            if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() <= $today) {
+                $total += ($schedule->getAmount() - ($schedule->getPaidAmount() ?: 0));
+            }
+        }
+        return $total;
     }
 }

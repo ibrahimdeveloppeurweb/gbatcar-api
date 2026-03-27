@@ -151,7 +151,35 @@ class ContractController extends AbstractController
      */
     public function getLateList(Request $request)
     {
-        return $this->json(['data' => []], 200);
+        $filters = $request->query->all();
+        $contracts = $this->contractRepository->findLateContracts($filters);
+
+        $totalArrears = 0;
+        $criticalCasesCount = 0;
+        $today = new \DateTimeImmutable('today');
+
+        foreach ($contracts as $contract) {
+            $analysis = $contract->getRiskAnalysis();
+            if ($analysis['level'] === 'CRITIQUE') {
+                $criticalCasesCount++;
+            }
+
+            // Calculate unpaid arrears for this contract from its schedules
+            foreach ($contract->getPaymentSchedules() as $schedule) {
+                if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() <= $today) {
+                    $totalArrears += ($schedule->getAmount() - ($schedule->getPaidAmount() ?: 0));
+                }
+            }
+        }
+
+        return $this->json([
+            'kpis' => [
+                'totalArrears' => $totalArrears,
+                'criticalCasesCount' => $criticalCasesCount,
+                'promiseToPayCount' => 1 // Simulated for now
+            ],
+            'contracts' => $contracts
+        ], 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
     }
 
     /**
