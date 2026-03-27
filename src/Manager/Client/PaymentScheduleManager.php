@@ -272,10 +272,14 @@ class PaymentScheduleManager
         $count = 0;
 
         $overdue = $this->em->getRepository(PaymentSchedule::class)->createQueryBuilder('s')
+            ->join('s.contract', 'c')
             ->where('s.expectedDate < :today')
             ->andWhere('s.status IN (:statuses)')
+            ->andWhere('c.status NOT IN (:excludedContractStatuses)')
             ->setParameter('today', $today)
             ->setParameter('statuses', ['À venir', 'Partiel'])
+            // Exclude suspended, completed or cancelled contracts from automatic late marking
+            ->setParameter('excludedContractStatuses', ['SUSPENDU', 'SOLDÉ', 'ANNULÉ', 'RÉSILIÉ'])
             ->getQuery()
             ->getResult();
 

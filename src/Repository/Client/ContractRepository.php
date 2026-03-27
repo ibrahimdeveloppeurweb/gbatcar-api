@@ -117,4 +117,44 @@ class ContractRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getResult();
     }
+
+    public function findLateContracts(array $filters): array
+    {
+        $today = new \DateTimeImmutable('today');
+
+        $qb = $this->createQueryBuilder('c')
+            ->innerJoin('c.paymentSchedules', 'ps')
+            ->leftJoin('c.client', 'cl')
+            ->leftJoin('c.vehicle', 'v')
+            ->leftJoin('v.brand', 'b')
+            ->leftJoin('v.vehicleModel', 'vm')
+            ->addSelect('cl')
+            ->addSelect('v')
+            ->addSelect('b')
+            ->addSelect('vm')
+            ->andWhere('ps.status IN (:lateStatuses)')
+            ->andWhere('ps.expectedDate <= :today')
+            ->setParameter('lateStatuses', ['En retard', 'Partiel'])
+            ->setParameter('today', $today);
+
+        // Security: Exclude non-active or suspended contracts for recovery view
+        $qb->andWhere('c.status NOT IN (:excludedStatuses)')
+            ->setParameter('excludedStatuses', ['ANNULÉ', 'SOLDÉ', 'RÉSILIÉ', 'EXPIRED']);
+
+        if (!empty($filters['search'])) {
+            $search = '%' . mb_strtolower($filters['search']) . '%';
+            $qb->andWhere('LOWER(c.reference) LIKE :search OR LOWER(cl.firstName) LIKE :search OR LOWER(cl.lastName) LIKE :search OR LOWER(v.immatriculation) LIKE :search')
+                ->setParameter('search', $search);
+        }
+
+        // IMPORTANT: We want distinct contracts
+        $qb->groupBy('c.id');
+        $qb->orderBy('c.id', 'DESC');
+
+        if (!empty($filters['count']) && is_numeric($filters['count'])) {
+            $qb->setMaxResults((int)$filters['count']);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }

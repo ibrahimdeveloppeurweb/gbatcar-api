@@ -290,13 +290,13 @@ class Vehicle
 
     /**
      * @ORM\ManyToOne(targetEntity=Brand::class)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "contract"})
      */
     private $brand;
 
     /**
      * @ORM\ManyToOne(targetEntity=VehicleModel::class)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "contract"})
      */
     private $vehicleModel;
 
