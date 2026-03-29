@@ -5,6 +5,8 @@ namespace App\Entity\Client;
 use App\Repository\Client\PaymentRepository;
 use App\Traits\SearchableTrait;
 use App\Traits\UserObjectNoCodeTrait;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
@@ -110,9 +112,40 @@ class Payment
      */
     private $client;
 
+    /**
+     * @ORM\OneToMany(targetEntity=PaymentDocument::class, mappedBy="payment", cascade={"persist", "remove"}, orphanRemoval=true)
+     * @Groups({"payment"})
+     */
+    private $documents;
+
+    public function __construct()
+    {
+        $this->documents = new ArrayCollection();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getDocuments(): Collection
+    {
+        return $this->documents;
+    }
+
+    public function addDocument(PaymentDocument $doc): self
+    {
+        if (!$this->documents->contains($doc)) {
+            $this->documents[] = $doc;
+            $doc->setPayment($this);
+        }
+        return $this;
+    }
+
+    public function removeDocument(PaymentDocument $doc): self
+    {
+        $this->documents->removeElement($doc);
+        return $this;
     }
 
     /**

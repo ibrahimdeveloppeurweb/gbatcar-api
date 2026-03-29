@@ -30,14 +30,14 @@ class VehicleModel
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"vehicle_model", "brand", "vehicle", "contract", "demand"})
+     * @Groups({"vehicle_model", "brand", "vehicle", "contract", "demand", "alert"})
      */
     private $name;
 
     /**
      * @ORM\ManyToOne(targetEntity=Brand::class, inversedBy="models")
      * @ORM\JoinColumn(nullable=false)
-     * @Groups({"vehicle_model", "vehicle"})
+     * @Groups({"vehicle_model", "vehicle", "alert"})
      */
     private $brand;
 

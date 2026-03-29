@@ -122,7 +122,10 @@ class PaymentManager
         // Auto-cover schedule installments if this is a validated payment
         $status = strtoupper($payment->getStatus() ?? '');
         if (in_array($status, ['VALIDÉ', 'VALIDATED', 'VALIDé']) && $payment->getContract()) {
-            $this->scheduleManager->refreshScheduleCoverage($payment->getContract());
+            // Only for standard rent payments
+            if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
+                $this->scheduleManager->refreshScheduleCoverage($payment->getContract());
+            }
         }
 
         return $payment;
@@ -233,8 +236,15 @@ class PaymentManager
 
         // Only if successfully validated, we update the payment schedule
         if (in_array($status, ['VALIDÉ', 'VALIDATED']) && $payment->getContract()) {
-            $this->scheduleManager->coverWithPayment($payment->getContract(), $payment->getAmount(), $payment->getDate());
-            $this->updateContractBalance($payment->getContract());
+            // Only for standard rent payments
+            if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
+                $this->scheduleManager->coverWithPayment($payment->getContract(), $payment->getAmount(), $payment->getDate());
+                $this->updateContractBalance($payment->getContract());
+            } else {
+                // For repairs, we still update the contract balance (if it includes them, 
+                // but wait, I just modified updateContractBalance to exclude them too!)
+                $this->updateContractBalance($payment->getContract());
+            }
         }
 
         return $payment;
@@ -246,7 +256,7 @@ class PaymentManager
             return;
         }
         $uploadsDir = 'uploads/payments/receipts';
-        $extension = $file->guessExtension() ?? $file->getClientOriginalExtension() ?? 'bin';
+        $extension = $file->getClientOriginalExtension() ?: 'bin';
         $filename = uniqid() . '.' . $extension;
         $file->move($uploadsDir, $filename);
         $payment->setReceiptUrl('/' . $uploadsDir . '/' . $filename);
@@ -263,8 +273,10 @@ class PaymentManager
         $payments = $this->paymentRepository->createQueryBuilder('p')
             ->where('p.contract = :contract')
             ->andWhere('p.status IN (:statuses)')
+            ->andWhere('p.type NOT IN (:excludedTypes)')
             ->setParameter('contract', $contract)
             ->setParameter('statuses', ['VALIDÉ', 'VALIDATED', 'Validé'])
+            ->setParameter('excludedTypes', ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])
             ->getQuery()
             ->getResult();
 

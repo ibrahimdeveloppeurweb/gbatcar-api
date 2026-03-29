@@ -26,25 +26,25 @@ class Client
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"client", "vehicle", "contract", "payment"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"client", "vehicle", "contract", "payment"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
      */
     private $name;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"client", "vehicle", "contract", "payment"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
      */
     private $firstName;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"client", "vehicle", "contract", "payment"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
      */
     private $lastName;
 

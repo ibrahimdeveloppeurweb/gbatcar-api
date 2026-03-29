@@ -10,6 +10,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\Request;
+use App\Entity\Client\PromiseToPay;
+use App\Repository\Client\PromiseToPayRepository;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
@@ -22,18 +24,21 @@ class ContractController extends AbstractController
     private $contractManager;
     private $em;
     private $documentRepository;
+    private $promiseRepository;
 
     public function __construct(
         ContractRepository $contractRepository,
         ContractManager $contractManager,
         EntityManagerInterface $em,
-        ContractDocumentRepository $documentRepository
+        ContractDocumentRepository $documentRepository,
+        PromiseToPayRepository $promiseRepository
         )
     {
         $this->contractRepository = $contractRepository;
         $this->contractManager = $contractManager;
         $this->em = $em;
         $this->documentRepository = $documentRepository;
+        $this->promiseRepository = $promiseRepository;
     }
 
     /**
@@ -44,7 +49,7 @@ class ContractController extends AbstractController
     {
         $filters = $request->query->all();
         $items = $this->contractRepository->findByFilters($filters);
-        return $this->json($items, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+        return $this->json($items, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
     }
 
     /**
@@ -55,7 +60,7 @@ class ContractController extends AbstractController
     {
         $data = json_decode($request->getContent());
         $item = $this->contractManager->create($data);
-        return $this->json($item, 201, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+        return $this->json($item, 201, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
     }
 
     /**
@@ -78,7 +83,7 @@ class ContractController extends AbstractController
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
-        return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+        return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
     }
 
     /**
@@ -90,7 +95,7 @@ class ContractController extends AbstractController
         $data = json_decode($request->getContent());
         try {
             $item = $this->contractManager->update($uuid, $data);
-            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
         }
         catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la modification : ' . $e->getMessage()], 400);
@@ -129,7 +134,7 @@ class ContractController extends AbstractController
 
         try {
             $this->contractManager->validate($item);
-            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
         }
         catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la validation : ' . $e->getMessage()], 500);
@@ -166,7 +171,7 @@ class ContractController extends AbstractController
 
             // Calculate unpaid arrears for this contract from its schedules
             foreach ($contract->getPaymentSchedules() as $schedule) {
-                if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() <= $today) {
+                if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() < $today) {
                     $totalArrears += ($schedule->getAmount() - ($schedule->getPaidAmount() ?: 0));
                 }
             }
@@ -176,10 +181,39 @@ class ContractController extends AbstractController
             'kpis' => [
                 'totalArrears' => $totalArrears,
                 'criticalCasesCount' => $criticalCasesCount,
-                'promiseToPayCount' => 1 // Simulated for now
+                'promiseToPayCount' => $this->promiseRepository->findPendingPromisesCount()
             ],
             'contracts' => $contracts
-        ], 200, [], ['groups' => ["contract", "contract:client", "contract:payments"]]);
+        ], 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
+    }
+
+    /**
+     * @Route("/{uuid}/promises/new", name="new_promise", methods={"POST"},
+     * options={"description"="Ajouter une promesse de paiement", "permission"="CONTRACT:PROMISE"})
+     */
+    public function addPromise(Request $request, string $uuid)
+    {
+        $contract = $this->contractRepository->findOneByUuid($uuid);
+        if (!$contract) {
+            return $this->json(['message' => 'Contrat introuvable'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!isset($data['expectedDate'])) {
+            return $this->json(['message' => 'La date est obligatoire'], 400);
+        }
+
+        $promise = new PromiseToPay();
+        $promise->setContract($contract);
+        $promise->setExpectedDate(new \DateTimeImmutable($data['expectedDate']));
+        $promise->setAmount(isset($data['amount']) ? (float)$data['amount'] : null);
+        $promise->setNote($data['note'] ?? null);
+        $promise->setStatus(PromiseToPay::STATUS['PENDING']);
+
+        $this->em->persist($promise);
+        $this->em->flush();
+
+        return $this->json($promise, 201, [], ['groups' => ["promise"]]);
     }
 
     /**

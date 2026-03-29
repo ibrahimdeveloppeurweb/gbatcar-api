@@ -72,7 +72,7 @@ class MaintenanceController extends AbstractController
     {
         try {
             $data = json_decode($request->getContent());
-            $item = $this->maintenanceManager->create($data);
+            $item = $this->maintenanceManager->create($data, $this->getUser());
             return $this->json($item, 201, [], ['groups' => ["maintenance"]]);
         }
         catch (\Exception $e) {
@@ -143,7 +143,15 @@ class MaintenanceController extends AbstractController
      */
     public function changeStatus(Request $request, $uuid)
     {
-    // To be implemented
+        try {
+            $data = json_decode($request->getContent());
+            $status = $data->status ?? 'Terminé';
+            $maintenance = $this->maintenanceManager->changeStatus($uuid, $status);
+            return $this->json($maintenance, 200, [], ['groups' => ["maintenance"]]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        }
     }
 
     /**

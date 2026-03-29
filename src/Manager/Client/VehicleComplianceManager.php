@@ -84,8 +84,7 @@ class VehicleComplianceManager
 
     private function recordDocument(Vehicle $vehicle, string $type, ?string $fileUrl, ?\DateTimeImmutable $expiryDate, ?\DateTimeImmutable $deliveryDate = null, ?string $observation = null, string $status = 'Archivé', float $renewalCost = 0): void
     {
-        if (!$fileUrl)
-            return;
+        // On permet désormais l'enregistrement sans fichier joint (fileUrl peut être nul)
 
         // If status is Actif, set all previous same-type docs to Archivé
         if ($status === 'Actif') {
@@ -186,11 +185,17 @@ class VehicleComplianceManager
 
         foreach ($fileMap as $field => $setter) {
             $file = $request->files->get($field);
-            if ($file && $file->isValid()) {
-                $filename = uniqid() . '_' . $file->getClientOriginalName();
-                $file->move($this->uploadDir, $filename);
-                $fileUrl = '/uploads/compliance/' . $filename;
-                $compliance->$setter($fileUrl);
+            $expiryField = str_replace('File', 'ExpiryDate', $field);
+            $hasData = $request->get($expiryField) || $request->request->get($expiryField);
+
+            if (($file && $file->isValid()) || $hasData) {
+                $fileUrl = null;
+                if ($file && $file->isValid()) {
+                    $filename = uniqid() . '_' . $file->getClientOriginalName();
+                    $file->move($this->uploadDir, $filename);
+                    $fileUrl = '/uploads/compliance/' . $filename;
+                    $compliance->$setter($fileUrl);
+                }
 
                 if ($compliance->getVehicle()) {
                     $this->recordDocument(
@@ -279,14 +284,14 @@ class VehicleComplianceManager
             ->where('d.vehicle = :vehicle')
             ->setParameter('vehicle', $vehicle);
 
-        if (!empty($filters->searchTerm)) {
+        if (!empty($filters->searchTerm) && trim($filters->searchTerm) !== '') {
             $historyQb->andWhere('d.type LIKE :term OR d.observation LIKE :term OR d.status LIKE :term')
-                ->setParameter('term', '%' . $filters->searchTerm . '%');
+                ->setParameter('term', '%' . trim($filters->searchTerm) . '%');
         }
 
-        if (!empty($filters->statusFilter)) {
+        if (!empty($filters->statusFilter) && trim($filters->statusFilter) !== '') {
             $historyQb->andWhere('d.status = :status')
-                ->setParameter('status', $filters->statusFilter);
+                ->setParameter('status', trim($filters->statusFilter));
         }
 
         if (!empty($filters->startDate)) {
@@ -306,14 +311,14 @@ class VehicleComplianceManager
             ->where('p.vehicle = :vehicle')
             ->setParameter('vehicle', $vehicle);
 
-        if (!empty($filters->searchTerm)) {
-            $penaltyQb->andWhere('p.reason LIKE :pterm OR p.reference LIKE :pterm OR p.observation LIKE :pterm OR p.status LIKE :pterm')
-                ->setParameter('pterm', '%' . $filters->searchTerm . '%');
+        if (!empty($filters->searchTerm) && trim($filters->searchTerm) !== '') {
+            $penaltyQb->andWhere('p.reference LIKE :term OR p.reason LIKE :term OR p.status LIKE :term')
+                ->setParameter('term', '%' . trim($filters->searchTerm) . '%');
         }
 
-        if (!empty($filters->statusFilter)) {
-            $penaltyQb->andWhere('p.status LIKE :pstatus')
-                ->setParameter('pstatus', '%' . $filters->statusFilter . '%');
+        if (!empty($filters->statusFilter) && trim($filters->statusFilter) !== '') {
+            $penaltyQb->andWhere('p.status = :status')
+                ->setParameter('status', trim($filters->statusFilter));
         }
 
         if (!empty($filters->startDate)) {

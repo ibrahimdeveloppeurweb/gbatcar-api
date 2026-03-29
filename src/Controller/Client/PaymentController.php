@@ -2,9 +2,14 @@
 
 namespace App\Controller\Client;
 
+use App\Entity\Client\PaymentDocument;
 use App\Manager\Client\PaymentManager;
+use App\Repository\Client\PaymentDocumentRepository;
 use App\Repository\Client\PaymentRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
@@ -15,14 +20,20 @@ class PaymentController extends AbstractController
 {
     private $paymentRepository;
     private $paymentManager;
+    private $em;
+    private $documentRepository;
 
     public function __construct(
         PaymentRepository $paymentRepository,
-        PaymentManager $paymentManager
+        PaymentManager $paymentManager,
+        EntityManagerInterface $em,
+        PaymentDocumentRepository $documentRepository
         )
     {
         $this->paymentRepository = $paymentRepository;
         $this->paymentManager = $paymentManager;
+        $this->em = $em;
+        $this->documentRepository = $documentRepository;
     }
 
     /**
@@ -140,5 +151,99 @@ class PaymentController extends AbstractController
     public function generateReceipt($uuid)
     {
     // To be implemented
+    }
+
+    /**
+     * @Route("/{uuid}/documents", name="upload_payment_document", methods={"POST"},
+     * options={"description"="Upload document(s) pour un paiement", "permission"="PAYMENT:DOCUMENT"})
+     */
+    public function uploadDocument(Request $request, string $uuid)
+    {
+        $payment = $this->paymentRepository->findOneByUuid($uuid);
+        if (!$payment) {
+            return $this->json(['message' => 'Paiement introuvable'], 404);
+        }
+
+        $files = $request->files->get('files');
+        if (!$files) {
+            return $this->json(['message' => 'Aucun fichier reçu'], 400);
+        }
+        if (!is_array($files)) {
+            $files = [$files];
+        }
+
+        $libelle = $request->request->get('libelle', '');
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/uploads/payment/' . $uuid . '/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $saved = [];
+        foreach ($files as $file) {
+            $originalName = $file->getClientOriginalName();
+            $mimeType     = $file->getClientMimeType();
+            $size         = $file->getSize();
+            $storedName   = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+
+            $file->move($uploadDir, $storedName);
+
+            $doc = new PaymentDocument();
+            $doc->setLibelle($libelle ?: $originalName);
+            $doc->setOriginalName($originalName);
+            $doc->setStoredName($storedName);
+            $doc->setMimeType($mimeType);
+            $doc->setSize($size);
+            $doc->setPayment($payment);
+            $this->em->persist($doc);
+            $saved[] = ['name' => $originalName, 'uuid' => $doc->getUuid()];
+        }
+        $this->em->flush();
+        return $this->json(['message' => count($saved) . ' fichier(s) ajouté(s)', 'files' => $saved], 201);
+    }
+
+    /**
+     * @Route("/{pUuid}/documents/{dUuid}/download", name="download_payment_document", methods={"GET"},
+     * options={"description"="Télécharger un document d'un paiement", "permission"="PAYMENT:DOCUMENT"})
+     */
+    public function downloadDocument(string $pUuid, string $dUuid)
+    {
+        try {
+            $doc = $this->documentRepository->findOneBy(['uuid' => $dUuid]);
+            if (!$doc) {
+                return $this->json(['message' => 'Document introuvable'], 404);
+            }
+            $path = $this->getParameter('kernel.project_dir') . '/public/uploads/payment/' . $pUuid . '/' . $doc->getStoredName();
+            if (!file_exists($path)) {
+                return $this->json(['message' => 'Fichier introuvable sur le serveur'], 404);
+            }
+            $response = new BinaryFileResponse($path);
+            if ($doc->getMimeType()) {
+                $response->headers->set('Content-Type', $doc->getMimeType());
+            }
+            $fallbackName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $doc->getOriginalName());
+            $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $doc->getOriginalName(), $fallbackName);
+            return $response;
+        } catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * @Route("/{pUuid}/documents/{dUuid}/delete", name="delete_payment_document", methods={"DELETE"},
+     * options={"description"="Supprimer un document d'un paiement", "permission"="PAYMENT:DOCUMENT"})
+     */
+    public function deleteDocument(string $pUuid, string $dUuid)
+    {
+        $doc = $this->documentRepository->findOneBy(['uuid' => $dUuid]);
+        if (!$doc) {
+            return $this->json(['message' => 'Document introuvable'], 404);
+        }
+        $path = $this->getParameter('kernel.project_dir') . '/public/uploads/payment/' . $pUuid . '/' . $doc->getStoredName();
+        if (file_exists($path)) {
+            @unlink($path);
+        }
+        $this->em->remove($doc);
+        $this->em->flush();
+        return $this->json(['message' => 'Document supprimé'], 200);
     }
 }

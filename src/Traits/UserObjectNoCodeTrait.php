@@ -12,21 +12,21 @@ trait UserObjectNoCodeTrait
     /**
      * @var UuidInterface
      * @ORM\Column(type="uuid", length=255, unique=true)
-     * @Groups({"user", "admin", "setting", "path", "role", "vehicle", "compliance", "client", "contract", "payment", "maintenance"})
+     * @Groups({"user", "admin", "setting", "path", "role", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert"})
      */
     private $uuid;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="create")
-     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment"})
+     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert"})
      */
     private $createdAt;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="update")
-     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment"})
+     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance"})
      */
     private $updatedAt;
 
@@ -87,7 +87,7 @@ trait UserObjectNoCodeTrait
     }
 
     /**
-     * @Groups({"user", "admin", "setting", "compliance", "client", "contract", "payment"})
+     * @Groups({"user", "admin", "setting", "compliance", "client", "contract", "payment", "maintenance", "vehicle"})
      */
     public function getCreate(): ?string
     {

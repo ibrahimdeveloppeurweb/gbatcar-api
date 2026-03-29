@@ -32,6 +32,12 @@ class MaintenanceAlert
      * @ORM\Column(type="string", length=255, nullable=true)
      * @Groups({"alert"})
      */
+    private $reference;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"alert"})
+     */
     private $type;
 
     /**
@@ -83,6 +89,12 @@ class MaintenanceAlert
     private $photosUrls = [];
 
     /**
+     * @ORM\Column(type="string", length=50, nullable=true)
+     * @Groups({"alert"})
+     */
+    private $billingPayer;
+
+    /**
      * @ORM\Column(type="text", nullable=true)
      * @Groups({"alert"})
      */
@@ -114,6 +126,18 @@ class MaintenanceAlert
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getReference(): ?string
+    {
+        return $this->reference;
+    }
+
+    public function setReference(?string $reference): self
+    {
+        $this->reference = $reference;
+
+        return $this;
     }
 
     /**
@@ -272,6 +296,18 @@ class MaintenanceAlert
     public function setObservation(?string $observation): self
     {
         $this->observation = $observation;
+
+        return $this;
+    }
+
+    public function getBillingPayer(): ?string
+    {
+        return $this->billingPayer;
+    }
+
+    public function setBillingPayer(?string $billingPayer): self
+    {
+        $this->billingPayer = $billingPayer;
 
         return $this;
     }

@@ -32,19 +32,19 @@ class Vehicle
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert"})
      */
     private $immatriculation;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert"})
      */
     private $marque;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert"})
      */
     private $modele;
 
@@ -309,7 +309,7 @@ class Vehicle
     /**
      * @ORM\ManyToOne(targetEntity=Client::class, inversedBy="vehicles")
      * @ORM\JoinColumn(nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "maintenance"})
      */
     private $client;
 
@@ -321,6 +321,7 @@ class Vehicle
 
     /**
      * @ORM\OneToMany(targetEntity=Maintenance::class, mappedBy="vehicle")
+     * @ORM\OrderBy({"id" = "DESC"})
      * @Groups({"vehicle"})
      */
     private $maintenances;

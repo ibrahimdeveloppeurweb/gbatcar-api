@@ -22,7 +22,8 @@ class VehicleModelController extends AbstractController
     }
 
     /**
-     * @Route("/", name="index_vehicle_model", methods={"GET"})
+     * @Route("/", name="index_vehicle_model", methods={"GET"},
+     * options={"description"="Liste des modèles de véhicule", "permission"="VEHICLE:MODEL:LIST"})
      */
     public function index(Request $request)
     {
@@ -43,7 +44,8 @@ class VehicleModelController extends AbstractController
     }
 
     /**
-     * @Route("/new", name="new_vehicle_model", methods={"POST"})
+     * @Route("/new", name="new_vehicle_model", methods={"POST"},
+     * options={"description"="Ajouter un modèle de véhicule", "permission"="VEHICLE:MODEL:NEW"})
      */
     public function new (Request $request)
     {

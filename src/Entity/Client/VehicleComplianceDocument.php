@@ -88,6 +88,11 @@ class VehicleComplianceDocument
      */
     private $vehicle;
 
+    public function __construct()
+    {
+
+    }
+
     public function getId(): ?int
     {
         return $this->id;
