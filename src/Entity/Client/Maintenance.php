@@ -26,13 +26,13 @@ class Maintenance
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"maintenance"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $reference;
 

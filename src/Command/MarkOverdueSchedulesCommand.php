@@ -42,7 +42,7 @@ class MarkOverdueSchedulesCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $io->title('Mise à jour des Échéances en Retard');
 
-        $count = $this->scheduleManager->markOverdueSchedules();
+        $count = $this->scheduleManager->markAllOverdueSchedules();
 
         if ($count === 0) {
             $io->success('Aucune échéance en retard détectée. Tout est à jour !');

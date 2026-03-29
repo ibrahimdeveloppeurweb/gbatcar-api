@@ -13,7 +13,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
 class ContractVehicleDemand
 {
     /**
-     * @ORM\ManyToMany(targetEntity=Vehicle::class)
+     * @ORM\ManyToMany(targetEntity=Vehicle::class, inversedBy="vehicleDemands")
      * @Groups({"contract", "demand", "client"})
      */
     private $assignedVehicles;

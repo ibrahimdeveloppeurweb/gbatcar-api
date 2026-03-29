@@ -32,7 +32,7 @@ class Brand
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"brand", "vehicle_model", "vehicle", "contract", "demand"})
+     * @Groups({"brand", "vehicle_model", "vehicle", "contract", "demand", "alert"})
      */
     private $name;
 

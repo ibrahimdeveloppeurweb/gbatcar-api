@@ -64,15 +64,23 @@ class MaintenanceAlertRepository extends ServiceEntityRepository
     }
     */
 
-    /*
-    public function findOneBySomeField($value): ?MaintenanceAlert
+    public function findOneByUuid($uuid): ?MaintenanceAlert
     {
         return $this->createQueryBuilder('m')
-            ->andWhere('m.exampleField = :val')
-            ->setParameter('val', $value)
+            ->andWhere('m.uuid = :val')
+            ->setParameter('val', $uuid, 'uuid')
             ->getQuery()
             ->getOneOrNullResult()
         ;
     }
-    */
+
+    public function countByYear(string $year): int
+    {
+        return $this->createQueryBuilder('a')
+            ->select('COUNT(a.id)')
+            ->where('a.reference LIKE :ref')
+            ->setParameter('ref', 'ALT-' . $year . '-%')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

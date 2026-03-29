@@ -4,6 +4,7 @@ namespace App\Controller\Client;
 
 use App\Manager\Client\MaintenanceAlertManager;
 use App\Repository\Client\MaintenanceAlertRepository;
+use App\Entity\Client\Payment;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,16 +33,27 @@ class MaintenanceAlertController extends AbstractController
     public function index(Request $request)
     {
         $items = $this->maintenanceAlertRepository->findAll();
-        return $this->json($items, 200, [], ['groups' => ["maintenance_alert"]]);
+        return $this->json($items, 200, [], ['groups' => ["alert"]]);
     }
 
     /**
      * @Route("/new", name="new_maintenance-alert", methods={"POST"}, 
      * options={"description"="Ajouter un nouveau maintenance-alert", "permission"="MAINTENANCE_ALERT:NEW"})
      */
-    public function new (Request $request)
+    public function new(Request $request)
     {
-    // To be implemented with MaintenanceAlertManager
+        try {
+            $raw = $request->getContent();
+            $data = json_decode($raw);
+            if (!$data) {
+                $data = (object)$request->request->all();
+            }
+
+            $maintenanceAlert = $this->maintenanceAlertManager->create($data, $request);
+            return $this->json($maintenanceAlert, 201, [], ['groups' => ["alert"]]);
+        } catch (\Exception $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        }
     }
 
     /**
@@ -50,8 +62,15 @@ class MaintenanceAlertController extends AbstractController
      */
     public function dashboard()
     {
-        // To be implemented
-        return $this->json([], 200);
+        // For now, return basic counts or structure
+        $items = $this->maintenanceAlertRepository->findAll();
+        $stats = [
+            'total' => count($items),
+            'open' => count(array_filter($items, fn($i) => $i->getStatus() === 'Ouvert')),
+            'in_progress' => count(array_filter($items, fn($i) => $i->getStatus() === 'En cours')),
+            'resolved' => count(array_filter($items, fn($i) => $i->getStatus() === 'Résolu')),
+        ];
+        return $this->json($stats, 200);
     }
 
     /**
@@ -64,7 +83,7 @@ class MaintenanceAlertController extends AbstractController
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
-        return $this->json($item, 200, [], ['groups' => ["maintenance_alert"]]);
+        return $this->json($item, 200, [], ['groups' => ["alert"]]);
     }
 
     /**
@@ -73,7 +92,18 @@ class MaintenanceAlertController extends AbstractController
      */
     public function edit(Request $request, $uuid)
     {
-    // To be implemented with MaintenanceAlertManager
+        try {
+            $raw = $request->getContent();
+            $data = json_decode($raw);
+            if (!$data) {
+                $data = (object)$request->request->all();
+            }
+
+            $item = $this->maintenanceAlertManager->update($uuid, $data, $request);
+            return $this->json($item, 200, [], ['groups' => ["alert"]]);
+        } catch (\Exception $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        }
     }
 
     /**
@@ -82,7 +112,15 @@ class MaintenanceAlertController extends AbstractController
      */
     public function delete($uuid)
     {
-    // To be implemented with MaintenanceAlertManager
+        try {
+            $item = $this->maintenanceAlertRepository->findOneByUuid($uuid);
+            if ($item) {
+                $this->maintenanceAlertManager->delete($item);
+            }
+            return $this->json(['message' => 'Alerte supprimée'], 200);
+        } catch (\Exception $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        }
     }
 
     /**
@@ -91,6 +129,39 @@ class MaintenanceAlertController extends AbstractController
      */
     public function changeStatus(Request $request, $uuid)
     {
-    // To be implemented
+        try {
+            $raw = $request->getContent();
+            $data = json_decode($raw);
+            if (!$data) {
+                $data = (object)$request->request->all();
+            }
+
+            $status = $data->status ?? 'Ouvert';
+            $item = $this->maintenanceAlertManager->changeStatus($uuid, $status);
+            return $this->json($item, 200, [], ['groups' => ["alert"]]);
+        } catch (\Exception $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * @Route("/{uuid}/invoice", name="invoice_maintenance-alert", methods={"POST"},
+     * options={"description"="Facturer un sinistre", "permission"="MAINTENANCE_ALERT:INVOICE"})
+     */
+    public function invoice(Request $request, $uuid)
+    {
+        try {
+            $raw = $request->getContent();
+            $data = json_decode($raw);
+            if (!$data) {
+                $data = (object)$request->request->all();
+            }
+
+            $payer = $data->payer ?? 'SOCIETE';
+            $item = $this->maintenanceAlertManager->invoice($uuid, $payer);
+            return $this->json($item, 200, [], ['groups' => ["alert"]]);
+        } catch (\Exception $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        }
     }
 }

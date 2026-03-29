@@ -68,7 +68,13 @@ class VehicleComplianceController extends AbstractController
      */
     public function show(Request $request, $uuid)
     {
-        $filters = (object)$request->query->all();
+        $filters = (object)[
+            'searchTerm' => $request->query->get('searchTerm', ''),
+            'statusFilter' => $request->query->get('statusFilter', ''),
+            'startDate' => $request->query->get('startDate'),
+            'endDate' => $request->query->get('endDate'),
+        ];
+
         $item = is_numeric($uuid)
             ? $this->repository->find($uuid)
             : $this->repository->findOneByUuid($uuid);

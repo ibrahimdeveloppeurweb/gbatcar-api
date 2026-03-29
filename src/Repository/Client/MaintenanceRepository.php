@@ -93,7 +93,7 @@ class MaintenanceRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('m')
             ->leftJoin('m.vehicle', 'v')
             ->addSelect('v')
-            ->orderBy('m.dateIntervention', 'DESC');
+            ->orderBy('m.createdAt', 'DESC');
 
         // Full-text search across reference, type, provider
         if (!empty($filters['search'])) {

@@ -21,7 +21,8 @@ class BrandController extends AbstractController
     }
 
     /**
-     * @Route("/", name="index_brand", methods={"GET"})
+     * @Route("/", name="index_brand", methods={"GET"},
+     * options={"description"="Liste des marques de véhicule", "permission"="BRAND:LIST"})
      */
     public function index()
     {
@@ -35,7 +36,8 @@ class BrandController extends AbstractController
     }
 
     /**
-     * @Route("/new", name="new_brand", methods={"POST"})
+     * @Route("/new", name="new_brand", methods={"POST"},
+     * options={"description"="Ajouter une marque de véhicule", "permission"="BRAND:NEW"})
      */
     public function new (Request $request)
     {

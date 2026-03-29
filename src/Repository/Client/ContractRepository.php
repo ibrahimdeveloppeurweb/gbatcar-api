@@ -133,7 +133,7 @@ class ContractRepository extends ServiceEntityRepository
             ->addSelect('b')
             ->addSelect('vm')
             ->andWhere('ps.status IN (:lateStatuses)')
-            ->andWhere('ps.expectedDate <= :today')
+            ->andWhere('ps.expectedDate < :today')
             ->setParameter('lateStatuses', ['En retard', 'Partiel'])
             ->setParameter('today', $today);
 

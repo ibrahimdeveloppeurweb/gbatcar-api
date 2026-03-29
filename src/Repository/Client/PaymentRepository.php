@@ -61,10 +61,13 @@ class PaymentRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('p')
             ->leftJoin('p.client', 'c')
             ->leftJoin('p.contract', 'ct')
-            ->addSelect('c', 'ct');
+            ->leftJoin('ct.vehicle', 'vDirect')
+            ->leftJoin('ct.vehicleDemands', 'vd')
+            ->leftJoin('vd.assignedVehicles', 'vAssigned')
+            ->addSelect('c', 'ct', 'vDirect', 'vd', 'vAssigned');
 
         if ($search) {
-            $qb->andWhere('p.reference LIKE :search OR c.lastName LIKE :search OR c.firstName LIKE :search OR ct.reference LIKE :search')
+            $qb->andWhere('p.reference LIKE :search OR p.observation LIKE :search OR c.lastName LIKE :search OR c.firstName LIKE :search OR ct.reference LIKE :search')
                 ->setParameter('search', '%' . $search . '%');
         }
 
@@ -96,6 +99,51 @@ class PaymentRepository extends ServiceEntityRepository
         if ($amountMax !== null) {
             $qb->andWhere('p.amount <= :amountMax')
                 ->setParameter('amountMax', $amountMax);
+        }
+
+        // Prioritized Vehicle Filter (Consolidation of vehicleId and vehicle UUID/Plate)
+        if (isset($filters['vehicleId']) || isset($filters['vehicle'])) {
+            $vIds = [];
+            if (isset($filters['vehicleId']) && !empty($filters['vehicleId'])) {
+                // Technical ID is prioritized
+                $vIds = [$filters['vehicleId']];
+            } else {
+                // Fallback to UUID/Plate identification
+                $vSearch = trim($filters['vehicle']);
+                $cleanVId = str_replace('/', '', $vSearch);
+                $vRes = $this->_em->getRepository(\App\Entity\Client\Vehicle::class)
+                    ->createQueryBuilder('v_sub')
+                    ->select('v_sub.id')
+                    ->where('v_sub.uuid = :vE OR v_sub.immatriculation = :vE OR v_sub.uuid LIKE :vL OR v_sub.immatriculation LIKE :vL')
+                    ->setParameter('vE', $vSearch)
+                    ->setParameter('vL', '%' . $cleanVId . '%')
+                    ->getQuery()
+                    ->getScalarResult();
+                $vIds = array_column($vRes, 'id');
+            }
+
+            if (!empty($vIds)) {
+                // Find all Contracts related to these vehicles
+                $cIds = $this->_em->getRepository(\App\Entity\Client\Contract::class)
+                    ->createQueryBuilder('ct_sub')
+                    ->select('ct_sub.id')
+                    ->leftJoin('ct_sub.vehicleDemands', 'vd_sub')
+                    ->leftJoin('vd_sub.assignedVehicles', 'vas_sub')
+                    ->where('ct_sub.vehicle IN (:vs) OR vas_sub.id IN (:vs)')
+                    ->setParameter('vs', $vIds)
+                    ->getQuery()
+                    ->getScalarResult();
+                $cIds = array_column($cIds, 'id');
+
+                if (!empty($cIds)) {
+                    $qb->andWhere('p.contract IN (:cts)')
+                        ->setParameter('cts', $cIds);
+                } else {
+                    $qb->andWhere('1 = 0'); // Contracts not found
+                }
+            } else {
+                $qb->andWhere('1 = 0'); // Vehicles not found
+            }
         }
 
         return $qb->orderBy('p.id', 'DESC')

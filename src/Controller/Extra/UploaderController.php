@@ -30,7 +30,8 @@ class UploaderController extends AbstractController
     }
 
     /**
-     * @Route("/api/uploader", name="uploader", methods={"POST"})
+     * @Route("/api/uploader", name="uploader", methods={"POST"},
+     * options={"description"="Uploader des fichiers", "permission"="UPLOADER:UPLOAD"})
      * @param Request $request
      * @return Response
      */
@@ -49,7 +50,8 @@ class UploaderController extends AbstractController
     }
 
     /**
-     * @Route("/api/uploader/create/folder", name="uploader_folder_creation")
+     * @Route("/api/uploader/create/folder", name="uploader_folder_creation", methods={"POST"},
+     * options={"description"="Créer un dossier d'upload", "permission"="UPLOADER:FOLDER:NEW"})
      * @param Request $request
      * @return Response
      */
@@ -62,7 +64,8 @@ class UploaderController extends AbstractController
     }
 
     /**
-     * @Route("/api/uploader/folder/delete", name="delete_file_folder")
+     * @Route("/api/uploader/folder/delete", name="delete_file_folder", methods={"DELETE", "POST"},
+     * options={"description"="Supprimer un dossier d'upload", "permission"="UPLOADER:FOLDER:DELETE"})
      * @param Request $request
      * @return Response
      */
@@ -84,7 +87,8 @@ class UploaderController extends AbstractController
     }
 
     /**
-     * @Route("/api/uploader/file/delete", name="delete_file")
+     * @Route("/api/uploader/file/delete", name="delete_file", methods={"DELETE", "POST"},
+     * options={"description"="Supprimer un fichier uploadé", "permission"="UPLOADER:FILE:DELETE"})
      * @param Request $request
      * @return Response
      */

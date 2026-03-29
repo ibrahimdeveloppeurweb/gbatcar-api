@@ -8,6 +8,7 @@ use App\Traits\UserObjectNoCodeTrait;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
+use Ramsey\Uuid\Uuid;
 use Symfony\Component\Serializer\Annotation\Groups;
 
 /**
@@ -104,6 +105,11 @@ class Penalty
      * @Groups({"penalty"})
      */
     private $vehicle;
+
+    public function __construct()
+    {
+        $this->uuid = Uuid::uuid4();
+    }
 
     public function getId(): ?int
     {

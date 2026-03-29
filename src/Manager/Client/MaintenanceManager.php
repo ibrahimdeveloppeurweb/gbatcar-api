@@ -6,6 +6,7 @@ use App\Entity\Client\Maintenance;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\Client\MaintenanceRepository;
 use App\Repository\Client\VehicleRepository;
+use App\Entity\Admin\User;
 
 class MaintenanceManager
 {
@@ -24,10 +25,14 @@ class MaintenanceManager
         $this->vehicleRepository = $vehicleRepository;
     }
 
-    public function create(object $data): Maintenance
+    public function create(object $data, ?User $user = null): Maintenance
     {
         $maintenance = new Maintenance();
         $maintenance->setReference('MNT-' . strtoupper(substr(uniqid(), -6)));
+
+        if ($user) {
+            $maintenance->setCreateBy($user);
+        }
 
         $this->mapDataToEntity($data, $maintenance);
 
@@ -46,6 +51,19 @@ class MaintenanceManager
 
         $this->mapDataToEntity($data, $maintenance);
 
+        $this->em->flush();
+
+        return $maintenance;
+    }
+
+    public function changeStatus(string $uuid, string $status): Maintenance
+    {
+        $maintenance = $this->maintenanceRepository->findOneByUuid($uuid);
+        if (!$maintenance) {
+            throw new \Exception("Intervention introuvable ou supprimée.");
+        }
+
+        $maintenance->setStatus($status);
         $this->em->flush();
 
         return $maintenance;

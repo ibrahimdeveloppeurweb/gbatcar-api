@@ -268,6 +268,13 @@ class Contract
      */
     private $documents;
 
+    /**
+     * @ORM\OneToMany(targetEntity=PromiseToPay::class, mappedBy="contract", cascade={"persist", "remove"})
+     * @Groups({"contract:promises"})
+     * @ORM\OrderBy({"expectedDate" = "DESC"})
+     */
+    private $promises;
+
     public function __construct()
     {
         $this->payments = new ArrayCollection();
@@ -276,6 +283,7 @@ class Contract
         $this->documents = new ArrayCollection();
         $this->vehicleDemands = new ArrayCollection();
         $this->paymentSchedules = new ArrayCollection();
+        $this->promises = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -331,6 +339,35 @@ class Contract
             // set the owning side to null (unless already changed)
             if ($paymentSchedule->getContract() === $this) {
                 $paymentSchedule->setContract(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PromiseToPay>
+     */
+    public function getPromises(): Collection
+    {
+        return $this->promises;
+    }
+
+    public function addPromise(PromiseToPay $promise): self
+    {
+        if (!$this->promises->contains($promise)) {
+            $this->promises[] = $promise;
+            $promise->setContract($this);
+        }
+
+        return $this;
+    }
+
+    public function removePromise(PromiseToPay $promise): self
+    {
+        if ($this->promises->removeElement($promise)) {
+            if ($promise->getContract() === $this) {
+                $promise->setContract(null);
             }
         }
 
@@ -858,8 +895,12 @@ class Contract
         $fees = $this->getFraisDossier() ?: 0;
 
         foreach ($this->payments as $payment) {
-            if (in_array($payment->getStatus(), ['VALIDÉ', 'Validé', 'VALIDATED'])) {
-                $totalPaid += $payment->getAmount();
+            $status = strtoupper($payment->getStatus() ?? '');
+            if (in_array($status, ['VALIDÉ', 'VALIDATED', 'VALIDé'])) {
+                // Ignore maintenance/incident refacturations
+                if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
+                    $totalPaid += $payment->getAmount();
+                }
             }
         }
 
@@ -954,7 +995,7 @@ class Contract
         $oldestUnpaid = null;
 
         foreach ($this->paymentSchedules as $schedule) {
-            if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() <= $today) {
+            if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() < $today) {
                 if ($oldestUnpaid === null || $schedule->getExpectedDate() < $oldestUnpaid->getExpectedDate()) {
                     $oldestUnpaid = $schedule;
                 }
@@ -1017,7 +1058,7 @@ class Contract
         $total = 0;
         $today = new \DateTimeImmutable('today');
         foreach ($this->paymentSchedules as $schedule) {
-            if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() <= $today) {
+            if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() < $today) {
                 $total += ($schedule->getAmount() - ($schedule->getPaidAmount() ?: 0));
             }
         }
