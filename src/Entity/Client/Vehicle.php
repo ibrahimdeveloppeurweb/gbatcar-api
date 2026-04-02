@@ -268,6 +268,23 @@ class Vehicle
      */
     private $margeBrutePrevisionnelle;
 
+    public function calculateTco(): self
+    {
+        $this->tcoEstime = (float)($this->purchasePrice ?? 0) +
+            (float)($this->customsFees ?? 0) +
+            (float)($this->transitFees ?? 0) +
+            (float)($this->preparationCost ?? 0) +
+            (float)($this->gpsInstallationCost ?? 0) +
+            (float)($this->otherCosts ?? 0);
+        return $this;
+    }
+
+    public function calculateMargeBrute(): self
+    {
+        $this->margeBrutePrevisionnelle = (float)($this->prixDeVente ?? 0) - (float)($this->tcoEstime ?? 0);
+        return $this;
+    }
+
     // --- DOCUMENTS NUMÉRIQUES ---
 
     /**
@@ -421,9 +438,6 @@ class Vehicle
         return $this;
     }
 
-    /**
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "demand"})
-     */
     public function getCouleur(): ?string
     {
         return $this->couleur;
@@ -433,6 +447,34 @@ class Vehicle
     {
         $this->couleur = $couleur;
         return $this;
+    }
+
+    /**
+     * Reliability Score (0-100%) based on payment punctuality
+     * @Groups({"vehicle"})
+     */
+    public function getReliabilityScore(): float
+    {
+        $totalPaid = 0;
+        $onTime = 0;
+
+        foreach ($this->contracts as $contract) {
+            foreach ($contract->getPaymentSchedules() as $schedule) {
+                if ($schedule->getPaidAt() !== null) {
+                    $totalPaid++;
+                    // Check if paid on or before expected date
+                    if ($schedule->getPaidAt()->format('Y-m-d') <= $schedule->getExpectedDate()->format('Y-m-d')) {
+                        $onTime++;
+                    }
+                }
+            }
+        }
+
+        if ($totalPaid === 0) {
+            return 100.0; // Default for new clients or no payments yet
+        }
+
+        return round(($onTime / $totalPaid) * 100, 1);
     }
 
     public function getFinition(): ?string
@@ -528,6 +570,26 @@ class Vehicle
 
     public function getStatut(): ?string
     {
+        // Dynamic status check if attached to an active contract (direct or fleet)
+        $activeStatusesList = ['ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'ACTIF', 'VALIDATED', 'VALIDé'];
+
+        if ($this->contracts !== null) {
+            foreach ($this->contracts as $contract) {
+                if (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours'])) {
+                    return 'En Location-Vente';
+                }
+            }
+        }
+
+        if ($this->vehicleDemands !== null) {
+            foreach ($this->vehicleDemands as $demand) {
+                $contract = $demand->getContract();
+                if ($contract && (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours']))) {
+                    return 'En Location-Vente';
+                }
+            }
+        }
+
         return $this->statut;
     }
 
@@ -539,6 +601,20 @@ class Vehicle
 
     public function getPaymentStatus(): ?string
     {
+        // Try to get from active contract first for real-time accuracy
+        if ($this->contracts !== null) {
+            foreach ($this->contracts as $contract) {
+                if (in_array(strtoupper($contract->getStatus() ?? ''), ['ACTIVE', 'EN COURS', 'VALIDÉ', 'ACTIF', 'VALIDATED'])) {
+                    return $contract->getPaymentStatus() ?: $this->paymentStatus;
+                }
+            }
+        }
+
+        // Final check: if sold, status should be Soldé
+        if ($this->statut === 'Vendu') {
+            return 'Soldé';
+        }
+
         return $this->paymentStatus;
     }
 

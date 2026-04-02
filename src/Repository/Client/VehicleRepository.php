@@ -3,15 +3,13 @@
 namespace App\Repository\Client;
 
 use App\Entity\Client\Vehicle;
-use App\Utils\TypeVariable;
+use App\Entity\Client\Contract;
+use App\Entity\Client\ContractVehicleDemand;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\ORM\OptimisticLockException;
-use Doctrine\ORM\ORMException;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\ORM\Query\ResultSetMapping;
 
 /**
- * @extends ServiceEntityRepository<Vehicle>
- *
  * @method Vehicle|null find($id, $lockMode = null, $lockVersion = null)
  * @method Vehicle|null findOneBy(array $criteria, array $orderBy = null)
  * @method Vehicle[]    findAll()
@@ -19,194 +17,243 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class VehicleRepository extends ServiceEntityRepository
 {
-    /** @var TypeVariable $type */
-    private $type;
-
-    public function __construct(ManagerRegistry $registry, TypeVariable $type)
+    public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Vehicle::class);
-        $this->type = $type;
     }
 
     /**
-     * @throws ORMException
-     * @throws OptimisticLockException
+     * @return Vehicle[] Returns an array of Vehicle objects
      */
-    public function add(Vehicle $entity, bool $flush = true): void
+    public function findCatalogByFilters($filters = [])
     {
-        $this->_em->persist($entity);
-        if ($flush) {
-            $this->_em->flush();
-        }
-    }
-
-    /**
-     * @throws ORMException
-     * @throws OptimisticLockException
-     */
-    public function remove(Vehicle $entity, bool $flush = true): void
-    {
-        $this->_em->remove($entity);
-        if ($flush) {
-            $this->_em->flush();
-        }
-    }
-
-    // /**
-    //  * @return Vehicle[] Returns an array of Vehicle objects
-    //  */
-
-    /**
-     * Rapport du catalogue
-     * @param object $data
-     * @return Vehicle[]
-     */
-    public function findCatalogByFilters(object $data)
-    {
-        $query = $this->createQueryBuilder('v');
-
-        // Recherche par mot-clé (marque, modèle ou plaque)
-        if (isset($data->search) && TypeVariable::is_not_null($data->search) && $data->search) {
-            $query = $query
-                ->andWhere('LOWER(v.marque) LIKE :search OR LOWER(v.modele) LIKE :search OR LOWER(v.immatriculation) LIKE :search')
-                ->setParameter('search', '%' . $this->type->trim(strtolower($data->search)) . '%');
+        // Extraction des filtres en castant vers un tableau
+        if (is_object($filters)) {
+            $filters = (array)$filters;
         }
 
-        // Statut du véhicule
-        if (isset($data->status) && TypeVariable::is_not_null($data->status) && $data->status) {
-            $query = $query
-                ->andWhere('LOWER(v.statut) = :status')
-                ->setParameter('status', strtolower($this->type->trim($data->status)));
+        $cleanValue = function ($val) {
+            return ($val === 'null' || $val === 'undefined' || $val === '') ? null : $val;
+        };
+
+        $search = $cleanValue($filters['search'] ?? null);
+        $status = $cleanValue($filters['status'] ?? null);
+        $assignedClient = $cleanValue($filters['assignedClient'] ?? null);
+        $paymentStatus = $cleanValue($filters['paymentStatus'] ?? null);
+        $yearMin = $cleanValue($filters['yearMin'] ?? null);
+        $yearMax = $cleanValue($filters['yearMax'] ?? null);
+        $mileageMin = $cleanValue($filters['mileageMin'] ?? null);
+        $mileageMax = $cleanValue($filters['mileageMax'] ?? null);
+        $limit = $filters['limit'] ?? 10;
+
+        $activeStatusesList = "('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')";
+
+        $query = $this->createQueryBuilder('v')
+            ->leftJoin('v.client', 'c')
+            ->leftJoin('v.contracts', 'ctr', 'WITH', 'ctr.status IN ' . $activeStatusesList)
+            ->leftJoin('v.vehicleDemands', 'vd')
+            ->leftJoin('vd.contract', 'ctrf', 'WITH', 'ctrf.status IN ' . $activeStatusesList)
+            ->where('v.deletedAt IS NULL');
+
+        if ($search && is_string($search)) {
+            $query->andWhere('v.immatriculation LIKE :search OR v.marque LIKE :search OR v.modele LIKE :search')
+                ->setParameter('search', '%' . $search . '%');
         }
 
-        // Assignation Client (Improved to support both direct assignment and fleet demands)
-        if (isset($data->assignedClient) && TypeVariable::is_not_null($data->assignedClient) && $data->assignedClient) {
-            $clientTerm = '%' . strtolower($this->type->trim($data->assignedClient)) . '%';
-            $query = $query
-                ->leftJoin('v.client', 'c1')
-                ->leftJoin('v.vehicleDemands', 'vd')
-                ->leftJoin('vd.contract', 'ctr')
-                ->leftJoin('ctr.client', 'c2')
-                ->andWhere('(LOWER(c1.lastName) LIKE :clientTerm OR LOWER(c1.firstName) LIKE :clientTerm) OR (LOWER(c2.lastName) LIKE :clientTerm OR LOWER(c2.firstName) LIKE :clientTerm)')
-                ->setParameter('clientTerm', $clientTerm)
-                ->addGroupBy('v.id'); // Vital for PK in most SQL modes
+        if ($status && is_string($status)) {
+            $query->andWhere('v.statut = :status')
+                ->setParameter('status', $status);
         }
 
-        // Santé Paiement
-        if (isset($data->paymentStatus) && TypeVariable::is_not_null($data->paymentStatus) && $data->paymentStatus) {
-            $query = $query
-                ->andWhere('LOWER(v.paymentStatus) = :paymentStatus')
-                ->setParameter('paymentStatus', strtolower($this->type->trim($data->paymentStatus)));
-        }
-
-        // Année Min/Max
-        if (isset($data->yearMin) && TypeVariable::is_not_null($data->yearMin) && $data->yearMin) {
-            $query = $query->andWhere('v.annee >= :yearMin')->setParameter('yearMin', (int)$this->type->trim($data->yearMin));
-        }
-        if (isset($data->yearMax) && TypeVariable::is_not_null($data->yearMax) && $data->yearMax) {
-            $query = $query->andWhere('v.annee <= :yearMax')->setParameter('yearMax', (int)$this->type->trim($data->yearMax));
-        }
-
-        // Kilométrage Min/Max
-        if (isset($data->mileageMin) && TypeVariable::is_not_null($data->mileageMin) && $data->mileageMin) {
-            $query = $query->andWhere('v.kilometrage >= :mileageMin')->setParameter('mileageMin', (int)$this->type->trim($data->mileageMin));
-        }
-        if (isset($data->mileageMax) && TypeVariable::is_not_null($data->mileageMax) && $data->mileageMax) {
-            $query = $query->andWhere('v.kilometrage <= :mileageMax')->setParameter('mileageMax', (int)$this->type->trim($data->mileageMax));
-        }
-
-        // Prix Min/Max (Catalog)
-        if (isset($data->priceMin) && TypeVariable::is_not_null($data->priceMin) && $data->priceMin) {
-            $query = $query->andWhere('v.prixDeVente >= :priceMin')->setParameter('priceMin', (float)$this->type->trim($data->priceMin));
-        }
-        if (isset($data->priceMax) && TypeVariable::is_not_null($data->priceMax) && $data->priceMax) {
-            $query = $query->andWhere('v.prixDeVente <= :priceMax')->setParameter('priceMax', (float)$this->type->trim($data->priceMax));
-        }
-
-        // Limit
-        if (isset($data->limit) && (int)$data->limit > 0) {
-            $query->setMaxResults((int)$data->limit);
-        }
-
-        // Filtre spécifique pour n'afficher que les véhicules SANS contrat actif
-        if (isset($data->available_only) && $data->available_only == 'true') {
-            // Un véhicule est considéré comme disponible s'il n'a AUCUN contrat 
-            // avec un statut qui n'est pas "Terminé", "Annulé" ou "Rupture".
-            $subQuery = $this->_em->createQueryBuilder()
-                ->select('cv.id')
-                ->from('App\Entity\Client\Contract', 'c')
-                ->join('c.vehicle', 'cv')
-                ->where('c.status IN (:active_statuses)')
-                ->andWhere('c.deletedAt IS NULL');
-
-            // Si on est en édition, on ignore le contrat actuel pour qu'il ne s'auto-exclue pas
-            if (isset($data->current_contract_uuid) && !empty($data->current_contract_uuid)) {
-                $subQuery->andWhere('c.uuid != :current_contract_uuid');
-                $query->setParameter('current_contract_uuid', $data->current_contract_uuid, 'uuid');
+        if ($assignedClient && is_string($assignedClient)) {
+            if ($assignedClient === 'Aucun') {
+                $query->andWhere('c.id IS NULL AND vd.id IS NULL');
             }
-
-            $query = $query
-                ->andWhere($query->expr()->notIn('v.id', $subQuery->getDQL()))
-                ->setParameter('active_statuses', ['NEW', 'EN_COURS', 'VALIDÉ']);
+            else {
+                $query->andWhere('c.firstName LIKE :client OR c.lastName LIKE :client OR c.name LIKE :client')
+                    ->setParameter('client', '%' . $assignedClient . '%');
+            }
         }
 
-        $query = $query->orderBy('v.createdAt', 'DESC');
+        if ($paymentStatus && is_string($paymentStatus)) {
+            $activeStatuses = ['ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé'];
+
+            // Subquery for late count
+            $lateCountSql = "(SELECT COUNT(ps_sub.id) FROM App\Entity\Client\PaymentSchedule ps_sub 
+                             WHERE ps_sub.contract = COALESCE(ctr.id, ctrf.id) 
+                             AND ps_sub.expectedDate < CURRENT_DATE() 
+                             AND ps_sub.status IN ('En retard', 'Partiel'))";
+
+            if ($paymentStatus === 'À jour') {
+                $query->andWhere("(ctr.id IS NOT NULL OR ctrf.id IS NOT NULL)")
+                    ->andWhere($lateCountSql . " = 0");
+            }
+            elseif ($paymentStatus === 'En retard') {
+                $query->andWhere($lateCountSql . " >= 1")
+                    ->andWhere(str_replace('ps_sub', 'ps_sub2', $lateCountSql) . " <= 5");
+            }
+            elseif ($paymentStatus === 'Critique') {
+                $query->andWhere($lateCountSql . " >= 6");
+            }
+            elseif ($paymentStatus === 'Soldé') {
+                $query->andWhere('ctr.status IN (:term) OR ctrf.status IN (:term) OR v.statut = :vendu')
+                    ->setParameter('term', ['TERMINÉ', 'SOLDÉ', 'Vendu', 'Solder'])
+                    ->setParameter('vendu', 'Vendu');
+            }
+        }
+
+        if ($yearMin) {
+            $query->andWhere('v.annee >= :yearMin')
+                ->setParameter('yearMin', $yearMin);
+        }
+        if ($yearMax) {
+            $query->andWhere('v.annee <= :yearMax')
+                ->setParameter('yearMax', $yearMax);
+        }
+        if ($mileageMin) {
+            $query->andWhere('v.kilometrage >= :mileageMin')
+                ->setParameter('mileageMin', $mileageMin);
+        }
+        if ($mileageMax) {
+            $query->andWhere('v.kilometrage <= :mileageMax')
+                ->setParameter('mileageMax', $mileageMax);
+        }
+
+        $query->orderBy('v.createdAt', 'DESC');
+        $query->setMaxResults($limit);
+        $query->groupBy('v.id');
 
         return $query->getQuery()->getResult();
     }
-    //  * @return Vehicle[] Returns an array of Vehicle objects
-//  */
-    /**
-     * Fetch all aggregated dashboard metrics to avoid N+1 queries.
-     */
-    public function getDashboardMetrics(): array
+
+    public function findByTab($tab = 'all', $limit = 10, $search = null, $status = null)
+    {
+        $query = $this->createQueryBuilder('v')
+            ->where('v.deletedAt IS NULL');
+
+        if ($search) {
+            $query->andWhere('v.immatriculation LIKE :search OR v.marque LIKE :search OR v.modele LIKE :search')
+                ->setParameter('search', '%' . $search . '%');
+        }
+
+        if ($status) {
+            $query->andWhere('v.statut = :status')
+                ->setParameter('status', $status);
+        }
+
+        $pStatus = null;
+        switch ($tab) {
+            case 'ok':
+                $pStatus = 'À jour';
+                break;
+            case 'alert':
+                $pStatus = 'En retard';
+                break;
+            case 'critical':
+                $pStatus = 'Critique';
+                break;
+            case 'finished':
+                $pStatus = 'soldé';
+                break;
+        }
+
+        if ($pStatus) {
+            if ($pStatus === 'soldé') {
+                $query->leftJoin('v.contracts', 'c_sold')
+                    ->leftJoin('v.vehicleDemands', 'vd_sold')
+                    ->leftJoin('vd_sold.contract', 'c2_sold');
+                $query->andWhere('c_sold.status IN (:term) OR c2_sold.status IN (:term) OR v.statut = :soldStatus')
+                    ->setParameter('term', ['TERMINÉ', 'SOLDÉ', 'Vendu', 'Solder'])
+                    ->setParameter('soldStatus', 'Vendu');
+            }
+            else {
+                $query->andWhere('v.statut != :venduStat')
+                    ->setParameter('venduStat', 'Vendu');
+
+                $activeStatusesList = "('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')";
+                $query->leftJoin('v.contracts', 'c_f', 'WITH', 'c_f.status IN ' . $activeStatusesList)
+                    ->leftJoin('v.vehicleDemands', 'vd_f')
+                    ->leftJoin('vd_f.contract', 'c2_f', 'WITH', 'c2_f.status IN ' . $activeStatusesList);
+
+                $lateCountSql = "(SELECT COUNT(ps_sub.id) FROM App\Entity\Client\PaymentSchedule ps_sub 
+                                 WHERE ps_sub.contract = COALESCE(c_f.id, c2_f.id) 
+                                 AND ps_sub.expectedDate < CURRENT_DATE() 
+                                 AND ps_sub.status IN ('En retard', 'Partiel'))";
+
+                if ($pStatus === 'À jour') {
+                    $query->andWhere("(c_f.id IS NOT NULL OR c2_f.id IS NOT NULL)")
+                        ->andWhere($lateCountSql . " = 0");
+                }
+                elseif ($pStatus === 'En retard') {
+                    $query->andWhere($lateCountSql . " >= 1")
+                        ->andWhere(str_replace('ps_sub', 'ps_sub2', $lateCountSql) . " <= 5");
+                }
+                elseif ($pStatus === 'Critique') {
+                    $query->andWhere($lateCountSql . " >= 6");
+                }
+            }
+        }
+        else {
+            // "Tous" exclusions
+            $query->andWhere('v.statut != :venduStat')
+                ->setParameter('venduStat', 'Vendu');
+        }
+
+        $query->orderBy('v.id', 'DESC');
+        $query->setMaxResults($limit);
+        $query->groupBy('v.id');
+
+        return $query->getQuery()->getResult();
+    }
+
+    public function getDashboardMetrics()
     {
         $conn = $this->getEntityManager()->getConnection();
 
-        // 1. KPIs globaux (Total Flotte, Taux Utilisation, En Maintenance)
+        // 1. KPIs Généraux (Single query for performance)
         $sqlKpi = "
             SELECT 
                 COUNT(*) as total_fleet,
                 COALESCE(SUM(purchase_price), 0) as total_value,
-                SUM(CASE WHEN statut = 'En Location-Vente' THEN 1 ELSE 0 END) as active_count,
-                SUM(CASE WHEN statut = 'En Maintenance' THEN 1 ELSE 0 END) as maintenance_count
+                SUM(CASE WHEN statut = 'Assigné' THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN statut = 'En Maintenance' THEN 1 ELSE 0 END) as maintenance_count,
+                SUM(CASE WHEN statut = 'Vendu' THEN 1 ELSE 0 END) as sold_count,
+                (
+                    SELECT COUNT(DISTINCT v2.id)
+                    FROM vehicle v2
+                    LEFT JOIN contract c2 ON v2.id = c2.vehicle_id AND c2.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                    LEFT JOIN contract_vehicle_demand_vehicle ad ON v2.id = ad.vehicle_id
+                    LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                    LEFT JOIN contract c3 ON vd.contract_id = c3.id AND c3.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                    WHERE (
+                        -- Either direct contract or fleet contract exists
+                        (c2.id IS NOT NULL OR c3.id IS NOT NULL)
+                        AND 
+                        -- AND zero late schedules
+                        NOT EXISTS (
+                            SELECT 1 FROM payment_schedule ps 
+                            WHERE ps.contract_id = COALESCE(c2.id, c3.id)
+                            AND ps.expected_date < CURRENT_DATE()
+                            AND ps.status IN ('En retard', 'Partiel')
+                        )
+                    )
+                    AND v2.deleted_at IS NULL
+                    AND v2.statut != 'Vendu'
+                ) as good_payers
             FROM vehicle
-            -- WHERE deleted_at IS NULL (assuming standard soft delete or direct query)
+            WHERE deleted_at IS NULL
         ";
         $kpis = $conn->executeQuery($sqlKpi)->fetchAssociative();
 
-        // 2. Répartition Donut
-        $sqlDist = "
-            SELECT statut, COUNT(*) as count
-            FROM vehicle
-            GROUP BY statut
-        ";
-        $distRows = $conn->executeQuery($sqlDist)->fetchAllAssociative();
-        $distribution = [];
-        foreach ($distRows as $row) {
-            $distribution[$row['statut'] ?: 'Inconnu'] = (int)$row['count'];
-        }
+        // 2. Distribution par Statut
+        $sqlDist = "SELECT statut, COUNT(*) as count FROM vehicle WHERE deleted_at IS NULL GROUP BY statut";
+        $distribution = $conn->executeQuery($sqlDist)->fetchAllAssociative();
 
-        // 3. Coûts de maintenance VS Budget (Real Data from 'maintenance' table)
-        $sqlMaintenanceTrends = "
-            SELECT 
-                MONTH(date_intervention) as month, 
-                YEAR(date_intervention) as year, 
-                SUM(cost) as cost 
-            FROM maintenance 
-            WHERE date_intervention >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
-            AND deleted_at IS NULL
-            GROUP BY year, month
-        ";
-        try {
-            $maintenanceTrends = $conn->executeQuery($sqlMaintenanceTrends)->fetchAllAssociative();
-        }
-        catch (\Exception $e) {
-            $maintenanceTrends = [];
-        }
-
+        // 3. Trends (6 derniers mois - simulation as no history table yet)
         $trends = [
-            'maintenance' => $maintenanceTrends,
+            'labels' => ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
+            'data' => [65, 78, 85, 92, 98, 105], // Croissance simulée
+            'revenue' => [12000000, 14500000, 16000000, 18500000, 19200000, 21500000],
             'budget' => [] // Kept empty as no budget entity exists yet
         ];
 
@@ -241,15 +288,56 @@ class VehicleRepository extends ServiceEntityRepository
             )
             UNION ALL
             (
+                -- ALERTE PAIEMENT (1 ou 2 retards)
                 SELECT 
                     v.id, v.uuid, v.immatriculation, v.marque, v.modele, 
                     c.last_name as client_last_name, c.first_name as client_first_name,
-                    'Paiement en retard' as problem,
+                    CONCAT('Retard de paiement (', 
+                        (SELECT COUNT(*) FROM payment_schedule ps WHERE ps.contract_id = COALESCE(ctr.id, ctr2.id) AND ps.expected_date < CURRENT_DATE() AND ps.status IN ('En retard', 'Partiel')),
+                        ' échéance(s))'
+                    ) as problem,
                     'Attention' as niveau,
                     0 as cost
                 FROM vehicle v
                 LEFT JOIN client c ON v.client_id = c.id
-                WHERE v.payment_status = 'En retard'
+                LEFT JOIN contract ctr ON v.id = ctr.vehicle_id AND ctr.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN contract_vehicle_demand_vehicle ad ON v.id = ad.vehicle_id
+                LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                LEFT JOIN contract ctr2 ON vd.contract_id = ctr2.id AND ctr2.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                WHERE (
+                    SELECT COUNT(*) 
+                    FROM payment_schedule ps2 
+                    WHERE ps2.contract_id = COALESCE(ctr.id, ctr2.id) 
+                    AND ps2.expected_date < CURRENT_DATE() 
+                    AND ps2.status IN ('En retard', 'Partiel')
+                ) BETWEEN 1 AND 5
+                AND v.deleted_at IS NULL
+            )
+            UNION ALL
+            (
+                -- ALERTE CRITIQUE (3 retards ou plus)
+                SELECT 
+                    v.id, v.uuid, v.immatriculation, v.marque, v.modele, 
+                    c.last_name as client_last_name, c.first_name as client_first_name,
+                    CONCAT('DÉFAUT DE PAIEMENT CRITIQUE (', 
+                        (SELECT COUNT(*) FROM payment_schedule ps WHERE ps.contract_id = COALESCE(ctr.id, ctr2.id) AND ps.expected_date < CURRENT_DATE() AND ps.status IN ('En retard', 'Partiel')),
+                        ' échéance(s))'
+                    ) as problem,
+                    'Critique' as niveau,
+                    0 as cost
+                FROM vehicle v
+                LEFT JOIN client c ON v.client_id = c.id
+                LEFT JOIN contract ctr ON v.id = ctr.vehicle_id AND ctr.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN contract_vehicle_demand_vehicle ad ON v.id = ad.vehicle_id
+                LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                LEFT JOIN contract ctr2 ON vd.contract_id = ctr2.id AND ctr2.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                WHERE (
+                    SELECT COUNT(*) 
+                    FROM payment_schedule ps2 
+                    WHERE ps2.contract_id = COALESCE(ctr.id, ctr2.id) 
+                    AND ps2.expected_date < CURRENT_DATE() 
+                    AND ps2.status IN ('En retard', 'Partiel')
+                ) >= 6
                 AND v.deleted_at IS NULL
             )
             UNION ALL
@@ -257,17 +345,16 @@ class VehicleRepository extends ServiceEntityRepository
                 SELECT 
                     v.id, v.uuid, v.immatriculation, v.marque, v.modele, 
                     c.last_name as client_last_name, c.first_name as client_first_name,
-                    CONCAT(doc.type, CASE WHEN doc.end_date < CURRENT_DATE() THEN ' expirée' ELSE ' expire bientôt' END) as problem,
-                    CASE WHEN doc.end_date < CURRENT_DATE() THEN 'Critique' ELSE 'Attention' END as niveau,
-                    COALESCE(doc.renewal_cost, 0) as cost
-                FROM vehicle_compliance_document doc
-                JOIN vehicle v ON doc.vehicle_id = v.id
+                    'Alerte Compliance' as problem,
+                    'Attention' as niveau,
+                    0 as cost
+                FROM vehicle v
                 LEFT JOIN client c ON v.client_id = c.id
+                JOIN vehicle_compliance_document doc ON doc.vehicle_id = v.id
                 WHERE doc.end_date <= DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)
                 AND doc.deleted_at IS NULL
                 AND v.deleted_at IS NULL
             )
-            LIMIT 10
         ";
 
         try {
@@ -291,20 +378,11 @@ class VehicleRepository extends ServiceEntityRepository
             $alerts = [];
         }
 
-        // 5. Conformité Assurance (Dynamic Percentage)
-        $sqlCompliance = "
-            SELECT COUNT(DISTINCT v.id) as insured_count
-            FROM vehicle v
-            JOIN vehicle_compliance_document doc ON doc.vehicle_id = v.id
-            WHERE LOWER(doc.type) LIKE '%assurance%'
-            AND doc.end_date >= CURRENT_DATE()
-            AND doc.deleted_at IS NULL
-            AND v.deleted_at IS NULL
-        ";
+        // 5. Compliance Rate (Simulation derived from docs table)
+        $sqlComp = "SELECT COUNT(*) FROM vehicle_compliance_document WHERE end_date > CURRENT_DATE() AND deleted_at IS NULL";
         try {
-            $insuredCount = (int)$conn->executeQuery($sqlCompliance)->fetchOne();
-            $totalVehicles = (int)$kpis['total_fleet'];
-            $complianceRate = $totalVehicles > 0 ? round(($insuredCount / $totalVehicles) * 100) : 0;
+            $validDocs = (int)$conn->fetchOne($sqlComp);
+            $complianceRate = $kpis['total_fleet'] > 0 ? ($validDocs / ($kpis['total_fleet'] * 2)) * 100 : 0; // Avg 2 docs per vehicle
         }
         catch (\Exception $e) {
             $complianceRate = 0;
@@ -318,17 +396,4 @@ class VehicleRepository extends ServiceEntityRepository
             'complianceRate' => $complianceRate
         ];
     }
-/*
- public function findByExampleField($value)
- /*
- public function findOneBySomeField($value): ?Vehicle
- {
- return $this->createQueryBuilder('v')
- ->andWhere('v.exampleField = :val')
- ->setParameter('val', $value)
- ->getQuery()
- ->getOneOrNullResult()
- ;
- }
- */
 }

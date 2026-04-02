@@ -32,7 +32,8 @@ class MaintenanceAlertController extends AbstractController
      */
     public function index(Request $request)
     {
-        $items = $this->maintenanceAlertRepository->findAll();
+        $data = (object)$request->query->all();
+        $items = $this->maintenanceAlertRepository->findByFilters((array)$data);
         return $this->json($items, 200, [], ['groups' => ["alert"]]);
     }
 
@@ -40,7 +41,7 @@ class MaintenanceAlertController extends AbstractController
      * @Route("/new", name="new_maintenance-alert", methods={"POST"}, 
      * options={"description"="Ajouter un nouveau maintenance-alert", "permission"="MAINTENANCE_ALERT:NEW"})
      */
-    public function new(Request $request)
+    public function new (Request $request)
     {
         try {
             $raw = $request->getContent();
@@ -51,7 +52,8 @@ class MaintenanceAlertController extends AbstractController
 
             $maintenanceAlert = $this->maintenanceAlertManager->create($data, $request);
             return $this->json($maintenanceAlert, 201, [], ['groups' => ["alert"]]);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         }
     }
@@ -101,7 +103,8 @@ class MaintenanceAlertController extends AbstractController
 
             $item = $this->maintenanceAlertManager->update($uuid, $data, $request);
             return $this->json($item, 200, [], ['groups' => ["alert"]]);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         }
     }
@@ -118,7 +121,8 @@ class MaintenanceAlertController extends AbstractController
                 $this->maintenanceAlertManager->delete($item);
             }
             return $this->json(['message' => 'Alerte supprimée'], 200);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         }
     }
@@ -139,7 +143,8 @@ class MaintenanceAlertController extends AbstractController
             $status = $data->status ?? 'Ouvert';
             $item = $this->maintenanceAlertManager->changeStatus($uuid, $status);
             return $this->json($item, 200, [], ['groups' => ["alert"]]);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         }
     }
@@ -160,7 +165,8 @@ class MaintenanceAlertController extends AbstractController
             $payer = $data->payer ?? 'SOCIETE';
             $item = $this->maintenanceAlertManager->invoice($uuid, $payer);
             return $this->json($item, 200, [], ['groups' => ["alert"]]);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         }
     }

@@ -73,9 +73,9 @@ class ClientManager
         return $this->clientRepository->findByFilters($filters);
     }
 
-    public function getDashboardData(): array
+    public function getDashboardData(int $months = 6): array
     {
-        return $this->clientRepository->getDashboardMetrics();
+        return $this->clientRepository->getDashboardMetrics($months);
     }
 
     private function handleFiles(Client $client, Request $request): void

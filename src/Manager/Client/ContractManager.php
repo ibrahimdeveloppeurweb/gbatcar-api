@@ -73,12 +73,15 @@ class ContractManager
                 if ($contract->getClient()) {
                     $vehicle->setClient($contract->getClient());
                 }
+                // Important: as soon as a vehicle is assigned to a contract (even NEW), it is no longer available.
+                $vehicle->setStatut('En Location-Vente');
             }
         }
         else {
             // Nullable vehicle
             $contract->setVehicle(null);
         }
+
 
         // Handle multiple vehicle demands
         if (isset($data->vehicleDemands) && is_array($data->vehicleDemands)) {
@@ -123,7 +126,7 @@ class ContractManager
                         $vehicle = $this->vehicleRepository->findOneBy(['uuid' => $vId]);
                         if ($vehicle) {
                             $demand->addAssignedVehicle($vehicle);
-                            $vehicle->setStatut('Assigné');
+                            $vehicle->setStatut('En Location-Vente');
                             if ($contract->getClient()) {
                                 $vehicle->setClient($contract->getClient());
                             }
@@ -229,7 +232,7 @@ class ContractManager
         }
         // Update Vehicle Status and Link to Client
         if ($vehicle = $contract->getVehicle()) {
-            $vehicle->setStatut('Assigné');
+            $vehicle->setStatut('En Location-Vente');
             if ($client = $contract->getClient()) {
                 $vehicle->setClient($client);
             }
@@ -250,6 +253,53 @@ class ContractManager
 
         $this->em->flush();
 
+        return $contract;
+    }
+
+    public function terminate(Contract $contract): Contract
+    {
+        $contract->setStatus('TERMINÉ');
+
+        // Normal end of Location-Vente: Vehicle becomes client property
+        if ($vehicle = $contract->getVehicle()) {
+            $vehicle->setStatut('Vendu');
+            // We KEEP the client on the vehicle as he is now the owner
+            $this->em->persist($vehicle);
+        }
+
+        // Free fleet vehicles (if any)
+        foreach ($contract->getVehicleDemands() as $demand) {
+            foreach ($demand->getAssignedVehicles() as $v) {
+                $v->setStatut('Vendu');
+                $this->em->persist($v);
+            }
+        }
+
+        $this->em->flush();
+        return $contract;
+    }
+
+    public function rupture(Contract $contract): Contract
+    {
+        $contract->setStatus('ROMPU');
+
+        // Breach of contract: Vehicle returns to company stock
+        if ($vehicle = $contract->getVehicle()) {
+            $vehicle->setStatut('Disponible');
+            $vehicle->setClient(null); // Back to inventory
+            $this->em->persist($vehicle);
+        }
+
+        // Return fleet vehicles to inventory
+        foreach ($contract->getVehicleDemands() as $demand) {
+            foreach ($demand->getAssignedVehicles() as $v) {
+                $v->setStatut('Disponible');
+                $v->setClient(null);
+                $this->em->persist($v);
+            }
+        }
+
+        $this->em->flush();
         return $contract;
     }
 

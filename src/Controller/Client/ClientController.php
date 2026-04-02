@@ -40,9 +40,10 @@ class ClientController extends AbstractController
      * @Route("/dashboard", name="dashboard_client", methods={"GET"}, 
      * options={"description"="Statistiques du tableau de bord", "permission"="CLIENT:DASHBOARD"})
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        $data = $this->clientManager->getDashboardData();
+        $months = (int)$request->query->get('months', 6);
+        $data = $this->clientManager->getDashboardData($months);
         return $this->json($data, 200, [], $this->getContext(["client", "contract", "payment"]));
     }
 

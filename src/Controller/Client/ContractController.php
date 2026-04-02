@@ -142,6 +142,46 @@ class ContractController extends AbstractController
     }
 
     /**
+     * @Route("/{uuid}/terminate", name="terminate_contract", methods={"POST", "PUT"},
+     * options={"description"="Terminer un contrat (Fin de cycle)", "permission"="CONTRACT:TERMINATE"})
+     */
+    public function terminate(string $uuid)
+    {
+        $item = $this->contractRepository->findOneBy(['uuid' => $uuid]);
+        if (!$item) {
+            return $this->json(['message' => 'Contrat introuvable'], 404);
+        }
+
+        try {
+            $this->contractManager->terminate($item);
+            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la terminaison : ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * @Route("/{uuid}/rupture", name="rupture_contract", methods={"POST", "PUT"},
+     * options={"description"="Rupture de contrat (Résiliation forcée)", "permission"="CONTRACT:TERMINATE"})
+     */
+    public function rupture(string $uuid)
+    {
+        $item = $this->contractRepository->findOneBy(['uuid' => $uuid]);
+        if (!$item) {
+            return $this->json(['message' => 'Contrat introuvable'], 404);
+        }
+
+        try {
+            $this->contractManager->rupture($item);
+            return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
+        }
+        catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la rupture : ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * @Route("/{uuid}/pdf", name="pdf_contract", methods={"GET"},
      * options={"description"="Générer PDF d'un contrat", "permission"="CONTRACT:PDF"})
      */

@@ -107,7 +107,8 @@ class PaymentRepository extends ServiceEntityRepository
             if (isset($filters['vehicleId']) && !empty($filters['vehicleId'])) {
                 // Technical ID is prioritized
                 $vIds = [$filters['vehicleId']];
-            } else {
+            }
+            else {
                 // Fallback to UUID/Plate identification
                 $vSearch = trim($filters['vehicle']);
                 $cleanVId = str_replace('/', '', $vSearch);
@@ -138,10 +139,12 @@ class PaymentRepository extends ServiceEntityRepository
                 if (!empty($cIds)) {
                     $qb->andWhere('p.contract IN (:cts)')
                         ->setParameter('cts', $cIds);
-                } else {
+                }
+                else {
                     $qb->andWhere('1 = 0'); // Contracts not found
                 }
-            } else {
+            }
+            else {
                 $qb->andWhere('1 = 0'); // Vehicles not found
             }
         }
@@ -150,5 +153,131 @@ class PaymentRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    public function getDashboardMetrics(int $months = 6): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+        $startDate = (new \DateTime())->modify("-{$months} months")->format('Y-m-01');
+
+        // Expected MRR for the selected period
+        $mrr = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND expected_date >= :start AND expected_date <= LAST_DAY(CURRENT_DATE())
+        ", ['start' => $startDate]);
+
+        // Collected MRR for the selected period
+        $mrrCollected = (float)$conn->fetchOne("
+            SELECT SUM(paid_amount) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND expected_date >= :start AND expected_date <= LAST_DAY(CURRENT_DATE())
+        ", ['start' => $startDate]);
+
+        // Total Overdue (All time)
+        $totalOverdue = (float)$conn->fetchOne("
+            SELECT SUM(amount - COALESCE(paid_amount, 0)) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND status IN ('En retard', 'Partiel') AND expected_date < CURRENT_DATE()
+        ");
+
+        $overdueCount = (int)$conn->fetchOne("
+            SELECT COUNT(DISTINCT contract_id) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND status IN ('En retard', 'Partiel') AND expected_date < CURRENT_DATE()
+        ");
+
+        // Next Month Forecast
+        $nextMonthStart = (new \DateTime())->modify("+1 month")->format('Y-m-01');
+        $nextMonthForecast = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND expected_date >= :start AND expected_date <= LAST_DAY(:start)
+        ", ['start' => $nextMonthStart]);
+
+        // Cash Balance (Simplified: Total Validated Payments)
+        $cashBalance = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment 
+            WHERE status IN ('VALIDÉ', 'VALIDATED') AND deleted_at IS NULL
+        ");
+
+        // 2. Cashflow Trends (Monthly Breakdown from schedules)
+        $sqlTrend = "
+            SELECT 
+                DATE_FORMAT(ps.expected_date, '%Y-%m') as month,
+                SUM(ps.amount) as expected,
+                SUM(COALESCE(ps.paid_amount, 0)) as paid
+            FROM payment_schedule ps
+            WHERE ps.deleted_at IS NULL AND ps.expected_date >= :start AND ps.expected_date <= LAST_DAY(CURRENT_DATE())
+            GROUP BY month
+            ORDER BY month ASC
+        ";
+        $trendData = $conn->fetchAllAssociative($sqlTrend, ['start' => $startDate]);
+
+        // 3. Payment Methods (Donut)
+        $sqlMethods = "
+            SELECT method as name, COUNT(id) as value
+            FROM payment
+            WHERE deleted_at IS NULL AND status IN ('VALIDÉ', 'VALIDATED')
+            GROUP BY method
+        ";
+        $methodsData = $conn->fetchAllAssociative($sqlMethods);
+
+        // 4. Recent Payments
+        $sqlRecent = "
+            SELECT 
+                p.uuid as id, c.first_name as firstName, c.last_name as lastName,
+                ctr.reference as contractId, p.amount, p.date, p.method, p.status,
+                p.reference, p.recorded_by as recordedBy, p.created_at as createdAt
+            FROM payment p
+            JOIN client c ON p.client_id = c.id
+            LEFT JOIN contract ctr ON p.contract_id = ctr.id
+            WHERE p.deleted_at IS NULL
+            ORDER BY p.date DESC, p.id DESC
+            LIMIT 10
+        ";
+        $recentPaymentsRaw = $conn->fetchAllAssociative($sqlRecent);
+        $recentPayments = [];
+        foreach ($recentPaymentsRaw as $rp) {
+            // Convert binary UUID if necessary
+            $id = $rp['id'];
+            if (strlen($id) === 16) {
+                try {
+                    $id = \Ramsey\Uuid\Uuid::fromBytes($id)->toString();
+                }
+                catch (\Exception $e) {
+                    $id = bin2hex($id);
+                }
+            }
+
+            $recentPayments[] = [
+                'id' => $id,
+                'client' => $rp['lastName'] . ' ' . $rp['firstName'],
+                'contractId' => $rp['contractId'],
+                'amount' => (float)$rp['amount'],
+                'date' => $rp['date'],
+                'method' => $rp['method'],
+                'status' => $rp['status'],
+                'reference' => $rp['reference'],
+                'recordedBy' => $rp['recordedBy'],
+                'createdAt' => $rp['createdAt']
+            ];
+        }
+
+        return [
+            'kpis' => [
+                'mrr' => $mrr,
+                'mrrCollected' => $mrrCollected,
+                'collectionRate' => $mrr > 0 ? round(($mrrCollected / $mrr) * 100, 1) : 0,
+                'totalOverdue' => $totalOverdue,
+                'overdueCount' => $overdueCount,
+                'nextMonthForecast' => $nextMonthForecast,
+                'cashBalance' => $cashBalance,
+                'avgPaymentDelay' => 0, // Placeholder
+                'activePenalties' => 0, // Placeholder
+                'penaltiesAmount' => 0 // Placeholder
+            ],
+            'trends' => [
+                'cashflow' => $trendData
+            ],
+            'methods' => $methodsData,
+            'recentPayments' => $recentPayments,
+            'totalPaymentsCount' => (int)$conn->fetchOne("SELECT COUNT(id) FROM payment WHERE deleted_at IS NULL")
+        ];
     }
 }

@@ -51,18 +51,18 @@ class MaintenanceAlertRepository extends ServiceEntityRepository
     //  * @return MaintenanceAlert[] Returns an array of MaintenanceAlert objects
     //  */
     /*
-    public function findByExampleField($value)
-    {
-        return $this->createQueryBuilder('m')
-            ->andWhere('m.exampleField = :val')
-            ->setParameter('val', $value)
-            ->orderBy('m.id', 'ASC')
-            ->setMaxResults(10)
-            ->getQuery()
-            ->getResult()
-        ;
-    }
-    */
+     public function findByExampleField($value)
+     {
+     return $this->createQueryBuilder('m')
+     ->andWhere('m.exampleField = :val')
+     ->setParameter('val', $value)
+     ->orderBy('m.id', 'ASC')
+     ->setMaxResults(10)
+     ->getQuery()
+     ->getResult()
+     ;
+     }
+     */
 
     public function findOneByUuid($uuid): ?MaintenanceAlert
     {
@@ -71,7 +71,7 @@ class MaintenanceAlertRepository extends ServiceEntityRepository
             ->setParameter('val', $uuid, 'uuid')
             ->getQuery()
             ->getOneOrNullResult()
-        ;
+            ;
     }
 
     public function countByYear(string $year): int
@@ -82,5 +82,66 @@ class MaintenanceAlertRepository extends ServiceEntityRepository
             ->setParameter('ref', 'ALT-' . $year . '-%')
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    public function findByFilters(array $filters = []): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->leftJoin('m.vehicle', 'v')
+            ->leftJoin('m.client', 'c')
+            ->addSelect('v')
+            ->addSelect('c')
+            ->orderBy('m.date', 'DESC');
+
+        $cleanValue = function ($val) {
+            return ($val === 'null' || $val === 'undefined' || $val === '') ? null : $val;
+        };
+
+        $search = $cleanValue($filters['search'] ?? null);
+        $severity = $cleanValue($filters['severity'] ?? null);
+        $status = $cleanValue($filters['status'] ?? null);
+        $dateMin = $cleanValue($filters['dateMin'] ?? null);
+        $dateMax = $cleanValue($filters['dateMax'] ?? null);
+        $limit = $cleanValue($filters['limit'] ?? null);
+
+        if ($search) {
+            $searchParam = '%' . $search . '%';
+            $qb->andWhere(
+                $qb->expr()->orX(
+                $qb->expr()->like('m.type', ':search'),
+                $qb->expr()->like('m.description', ':search'),
+                $qb->expr()->like('v.immatriculation', ':search'),
+                $qb->expr()->like('v.marque', ':search'),
+                $qb->expr()->like('v.modele', ':search'),
+                $qb->expr()->like('c.firstName', ':search'),
+                $qb->expr()->like('c.lastName', ':search'),
+                $qb->expr()->like('c.name', ':search')
+            )
+            )->setParameter('search', $searchParam);
+        }
+
+        if ($severity) {
+            $qb->andWhere('m.severity = :severity')->setParameter('severity', $severity);
+        }
+
+        if ($status) {
+            $qb->andWhere('m.status = :status')->setParameter('status', $status);
+        }
+
+        if ($dateMin) {
+            $qb->andWhere('m.date >= :dateMin')
+                ->setParameter('dateMin', new \DateTimeImmutable($dateMin));
+        }
+
+        if ($dateMax) {
+            $qb->andWhere('m.date <= :dateMax')
+                ->setParameter('dateMax', new \DateTimeImmutable($dateMax . ' 23:59:59'));
+        }
+
+        if ($limit) {
+            $qb->setMaxResults((int)$limit);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 }
