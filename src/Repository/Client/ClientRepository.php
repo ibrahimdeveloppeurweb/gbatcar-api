@@ -127,24 +127,62 @@ class ClientRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
-    public function getDashboardMetrics(): array
+    public function getDashboardMetrics(int $months = 6): array
     {
         $conn = $this->_em->getConnection();
 
-        // 1. Global KPIs
-        $totalClients = (int)$conn->fetchOne('SELECT COUNT(id) FROM client WHERE deleted_at IS NULL');
-        $activeClients = (int)$conn->fetchOne("SELECT COUNT(id) FROM client WHERE deleted_at IS NULL AND status IN ('Dossier Approuvé', 'En Cours de Contrat')");
-        $lateClients = (int)$conn->fetchOne("SELECT COUNT(id) FROM client WHERE deleted_at IS NULL AND status = 'Litige / Bloqué'");
-        $portfolioValue = (float)$conn->fetchOne("SELECT SUM(unpaid_amount) FROM client WHERE deleted_at IS NULL");
-        $newThisMonth = (int)$conn->fetchOne("SELECT COUNT(id) FROM client WHERE deleted_at IS NULL AND MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
+        $monthsToSubtract = max(0, $months - 1);
+        $startDate = (new \DateTime("-{$monthsToSubtract} months"))->modify('first day of this month')->format('Y-m-d 00:00:00');
 
-        // 2. Status Distribution (Donut Chart)
-        $statusCounts = $conn->fetchAllAssociative("
-            SELECT status, COUNT(id) as count 
-            FROM client 
-            WHERE deleted_at IS NULL 
-            GROUP BY status
-        ");
+        // 1. & 2. Global KPIs and Status Distribution (Filtered by timeframe)
+        // Build classification based on actual Contracts and Payment Schedules bounds
+        $sqlClassification = "
+            SELECT 
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM contract ctr
+                        WHERE ctr.client_id = c.id 
+                          AND ctr.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                    ) THEN 
+                        CASE 
+                            WHEN EXISTS (
+                                SELECT 1 FROM payment_schedule ps
+                                INNER JOIN contract ctr2 ON ps.contract_id = ctr2.id
+                                WHERE ctr2.client_id = c.id
+                                  AND ctr2.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                                  AND ps.expected_date < CURRENT_DATE()
+                                  AND ps.status IN ('En retard', 'Partiel')
+                            ) THEN 'En Retard'
+                            ELSE 'Actifs'
+                        END
+                        
+                    WHEN EXISTS (
+                        SELECT 1 FROM contract ctr
+                        WHERE ctr.client_id = c.id 
+                          AND ctr.status IN ('NEW', 'PENDING', 'EN ATTENTE', 'En Attente', 'Nouveau', 'Prospect')
+                    ) THEN 'En Attente'
+                    
+                    WHEN EXISTS (
+                        SELECT 1 FROM contract ctr
+                        WHERE ctr.client_id = c.id 
+                          AND ctr.status IN ('TERMINÉ', 'SOLDÉ', 'Solder', 'ROMPU', 'ANNULÉ', 'Résilié')
+                    ) 
+                    OR EXISTS (
+                        SELECT 1 FROM vehicle v 
+                        JOIN contract ctr3 ON v.id = ctr3.vehicle_id 
+                        WHERE ctr3.client_id = c.id AND v.statut = 'Vendu'
+                    )
+                    OR c.status = 'Inactif' THEN 'Inactifs'
+                    
+                    ELSE 'En Attente'
+                END as class_status,
+                COUNT(c.id) as count
+            FROM client c
+            WHERE c.deleted_at IS NULL AND c.created_at >= :start
+            GROUP BY class_status
+        ";
+
+        $statusCounts = $conn->fetchAllAssociative($sqlClassification, ['start' => $startDate]);
 
         $distribution = [
             'Actifs' => 0,
@@ -154,74 +192,133 @@ class ClientRepository extends ServiceEntityRepository
         ];
 
         foreach ($statusCounts as $row) {
-            if (in_array($row['status'], ['Dossier Approuvé', 'En Cours de Contrat'])) {
-                $distribution['Actifs'] += (int)$row['count'];
-            }
-            elseif ($row['status'] === 'Litige / Bloqué') {
-                $distribution['En Retard'] += (int)$row['count'];
-            }
-            elseif (in_array($row['status'], ['En attente de Validation', 'Prospect', 'Dossier Validé'])) {
-                $distribution['En Attente'] += (int)$row['count'];
-            }
-            elseif ($row['status'] === 'Inactif') {
-                $distribution['Inactifs'] += (int)$row['count'];
+            $statusCat = $row['class_status'];
+            if (isset($distribution[$statusCat])) {
+                $distribution[$statusCat] += (int)$row['count'];
             }
         }
 
-        // 3. Evolution last 6 months (Bar Chart)
-        $sixMonthsAgo = (new \DateTime('-5 months'))->modify('first day of this month')->format('Y-m-d 00:00:00');
-
-        $newClientsTrend = $conn->fetchAllAssociative("
+        $lateData = $conn->fetchAssociative("
             SELECT 
-                MONTH(created_at) as month,
-                YEAR(created_at) as year,
-                COUNT(id) as count
-            FROM client 
-            WHERE created_at >= :sixMonthsAgo
-            GROUP BY year, month
-            ORDER BY year ASC, month ASC
-        ", ['sixMonthsAgo' => $sixMonthsAgo]);
+                SUM(ps.amount - ps.paid_amount) as total_late,
+                COUNT(DISTINCT ctr.client_id) as late_clients_count
+            FROM payment_schedule ps
+            JOIN contract ctr ON ps.contract_id = ctr.id
+            WHERE ps.deleted_at IS NULL 
+              AND ctr.deleted_at IS NULL
+              AND ps.status IN ('En retard', 'Partiel')
+              AND ps.expected_date < CURRENT_DATE()
+              AND ctr.start_date >= :start
+        ", ['start' => $startDate]);
 
-        $lostClientsTrend = $conn->fetchAllAssociative("
+        $portfolioValue = (float)($lateData['total_late'] ?? 0);
+        $lateClientsWithDebit = (int)($lateData['late_clients_count'] ?? 0);
+
+        $totalClients = array_sum($distribution);
+        $activeClients = $distribution['Actifs'];
+
+        // This is always true for the current month, but we limit by start just in case 
+        $newThisMonth = (int)$conn->fetchOne("SELECT COUNT(id) FROM client WHERE deleted_at IS NULL AND MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE()) AND created_at >= :start", ['start' => $startDate]);
+
+        // 3. Evolution last X months (Bar Chart Cohort Analysis)
+        $sqlEvolution = "
             SELECT 
-                MONTH(updated_at) as month,
-                YEAR(updated_at) as year,
-                COUNT(id) as count
-            FROM client 
-            WHERE status = 'Inactif' AND updated_at >= :sixMonthsAgo
-            GROUP BY year, month
+                MONTH(ctr.start_date) as month,
+                YEAR(ctr.start_date) as year,
+                CASE 
+                    WHEN ctr.status IN ('TERMINÉ', 'SOLDÉ', 'Solder') OR v.statut = 'Vendu' THEN 'Gris'
+                    WHEN ctr.status IN ('ROMPU', 'ANNULÉ', 'Résilié') THEN 'Rouge'
+                    WHEN ctr.status IN ('ACTIVE', 'EN COURS', 'VALIDÉ', 'EN_COURS', 'Actif', 'En cours', 'Validé', 'VALIDATED') AND NOT EXISTS (
+                        SELECT 1 FROM payment_schedule ps WHERE ps.contract_id = ctr.id AND ps.expected_date < CURRENT_DATE() AND ps.status IN ('En retard', 'Partiel')
+                    ) THEN 'Vert'
+                    ELSE 'Autre'
+                END as classification,
+                COUNT(ctr.id) as count
+            FROM contract ctr
+            JOIN client c ON ctr.client_id = c.id
+            LEFT JOIN vehicle v ON ctr.vehicle_id = v.id
+            WHERE ctr.deleted_at IS NULL AND c.deleted_at IS NULL AND ctr.start_date >= :start
+            GROUP BY year, month, classification
             ORDER BY year ASC, month ASC
-        ", ['sixMonthsAgo' => $sixMonthsAgo]);
+        ";
 
-        // 4. Risky Clients (List)
-        $riskyClients = $this->createQueryBuilder('c')
-            ->where('c.unpaidAmount > 0')
-            ->andWhere('c.deletedAt IS NULL')
-            ->orderBy('c.unpaidAmount', 'DESC')
-            ->setMaxResults(5)
-            ->getQuery()
-            ->getResult();
+        $evolutionData = $conn->fetchAllAssociative($sqlEvolution, ['start' => $startDate]);
 
-        // 5. New Clients (List)
-        $newClients = $this->createQueryBuilder('c')
+        $vertTrend = [];
+        $grisTrend = [];
+        $rougeTrend = [];
+
+        foreach ($evolutionData as $row) {
+            $item = ['month' => $row['month'], 'year' => $row['year'], 'count' => $row['count']];
+            if ($row['classification'] === 'Vert')
+                $vertTrend[] = $item;
+            elseif ($row['classification'] === 'Gris')
+                $grisTrend[] = $item;
+            elseif ($row['classification'] === 'Rouge')
+                $rougeTrend[] = $item;
+        }
+
+        // 4. Risky Clients (Dynamic Delay calculation)
+        $sqlRisky = "
+            SELECT 
+                c.id, c.uuid, c.first_name as firstName, c.last_name as lastName,
+                v.marque, v.modele,
+                SUM(ps.amount - ps.paid_amount) as totalDue,
+                DATEDIFF(CURRENT_DATE(), MIN(ps.expected_date)) as delayDays
+            FROM client c
+            JOIN contract ctr ON c.id = ctr.client_id
+            JOIN payment_schedule ps ON ctr.id = ps.contract_id
+            LEFT JOIN vehicle v ON ctr.vehicle_id = v.id
+            WHERE c.deleted_at IS NULL 
+              AND ctr.deleted_at IS NULL 
+              AND ps.deleted_at IS NULL
+              AND ps.status IN ('En retard', 'Partiel')
+              AND ps.expected_date < CURRENT_DATE()
+              AND ctr.start_date >= :start
+            GROUP BY c.id, v.id
+            ORDER BY delayDays DESC, totalDue DESC
+            LIMIT 5
+        ";
+
+        $riskyClients = $conn->fetchAllAssociative($sqlRisky, ['start' => $startDate]);
+
+        // 5. New Clients (List) - keep this as objects since it's simple
+        $newClientsRaw = $this->createQueryBuilder('c')
             ->where('c.deletedAt IS NULL')
+            ->andWhere('c.createdAt >= :start')
+            ->setParameter('start', $startDate)
             ->orderBy('c.createdAt', 'DESC')
             ->setMaxResults(5)
             ->getQuery()
             ->getResult();
+
+        $newClients = [];
+        foreach ($newClientsRaw as $nc) {
+            $v = $nc->getVehicles()->first();
+            $newClients[] = [
+                'uuid' => $nc->getUuid(),
+                'firstName' => $nc->getFirstName(),
+                'lastName' => $nc->getLastName(),
+                'phone' => $nc->getPhone(),
+                'createdAt' => $nc->getCreatedAt() ? $nc->getCreatedAt()->format('Y-m-d H:i:s') : null,
+                'status' => $nc->getStatus(),
+                'vehicle' => $v ? ['marque' => $v->getMarque(), 'modele' => $v->getModele()] : null
+            ];
+        }
 
         return [
             'kpis' => [
                 'totalClients' => $totalClients,
                 'newThisMonth' => $newThisMonth,
                 'activeClients' => $activeClients,
-                'lateClients' => $lateClients,
+                'lateClients' => $lateClientsWithDebit,
                 'portfolioValue' => $portfolioValue
             ],
             'distribution' => $distribution,
             'trends' => [
-                'new' => $newClientsTrend,
-                'lost' => $lostClientsTrend
+                'vert' => $vertTrend,
+                'gris' => $grisTrend,
+                'rouge' => $rougeTrend
             ],
             'riskyClients' => $riskyClients,
             'newClients' => $newClients

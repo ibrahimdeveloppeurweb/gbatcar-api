@@ -128,7 +128,23 @@ class VehicleController extends AbstractController
      */
     public function reserve(Request $request, $uuid)
     {
-    // To be implemented
+        $vehicle = is_numeric($uuid) 
+            ? $this->vehicleRepository->find($uuid)
+            : $this->vehicleRepository->findOneByUuid($uuid);
+
+        if (!$vehicle) {
+            return $this->json(['message' => 'Véhicule introuvable.'], 404);
+        }
+
+        $data = json_decode($request->getContent());
+        $reservedBy = $data->reservedBy ?? 'Agent';
+
+        try {
+            $this->vehicleManager->reserve($vehicle, $reservedBy);
+            return $this->json($vehicle, 200, [], ['groups' => ['vehicle']]);
+        } catch (\Exception $e) {
+            return $this->json(['message' => 'Erreur lors de la réservation.', 'details' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -137,7 +153,29 @@ class VehicleController extends AbstractController
      */
     public function changeStatus(Request $request, $uuid)
     {
-    // To be implemented
+        $vehicle = is_numeric($uuid) 
+            ? $this->vehicleRepository->find($uuid)
+            : $this->vehicleRepository->findOneByUuid($uuid);
+
+        if (!$vehicle) {
+            return $this->json(['message' => 'Véhicule introuvable.'], 404);
+        }
+
+        $data = json_decode($request->getContent());
+        if (!isset($data->status)) {
+            return $this->json(['message' => 'Le statut est obligatoire.'], 400);
+        }
+
+        $newStatus = $data->status;
+        $vehicle->setStatut($newStatus);
+        
+        if ($newStatus === 'Disponible') {
+            $vehicle->setPreReservedBy(null);
+        }
+        
+        $this->em->flush();
+
+        return $this->json($vehicle, 200, [], ['groups' => ['vehicle']]);
     }
 
     /**

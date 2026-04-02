@@ -48,6 +48,17 @@ class PaymentController extends AbstractController
     }
 
     /**
+     * @Route("/dashboard", name="dashboard_payment", methods={"GET"}, 
+     * options={"description"="Statistiques financières du tableau de bord", "permission"="PAYMENT:DASHBOARD"})
+     */
+    public function dashboard(Request $request)
+    {
+        $months = (int)$request->query->get('months', 6);
+        $data = $this->paymentRepository->getDashboardMetrics($months);
+        return $this->json($data, 200);
+    }
+
+    /**
      * @Route("/new", name="new_payment", methods={"POST"}, 
      * options={"description"="Ajouter un nouveau payment", "permission"="PAYMENT:NEW"})
      */
@@ -181,9 +192,9 @@ class PaymentController extends AbstractController
         $saved = [];
         foreach ($files as $file) {
             $originalName = $file->getClientOriginalName();
-            $mimeType     = $file->getClientMimeType();
-            $size         = $file->getSize();
-            $storedName   = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+            $mimeType = $file->getClientMimeType();
+            $size = $file->getSize();
+            $storedName = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
 
             $file->move($uploadDir, $storedName);
 
@@ -223,7 +234,8 @@ class PaymentController extends AbstractController
             $fallbackName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $doc->getOriginalName());
             $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $doc->getOriginalName(), $fallbackName);
             return $response;
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
         }
     }

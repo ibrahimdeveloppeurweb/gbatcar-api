@@ -57,6 +57,13 @@ class VehicleManager
         $this->em->flush();
     }
 
+    public function reserve(Vehicle $vehicle, string $reservedBy): void
+    {
+        $vehicle->setPreReservedBy($reservedBy);
+        $vehicle->setStatut('Réservé');
+        $this->em->flush();
+    }
+
     public function getDashboardData(): array
     {
         return $this->vehicleRepository->getDashboardMetrics();
@@ -191,5 +198,9 @@ class VehicleManager
             $photos = is_string($data->photos) ? explode(',', $data->photos) : $data->photos;
             $vehicle->setPhotos($photos);
         }
+
+        // Auto-calculate TCO and Marge
+        $vehicle->calculateTco();
+        $vehicle->calculateMargeBrute();
     }
 }
