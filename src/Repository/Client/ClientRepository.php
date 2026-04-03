@@ -124,7 +124,12 @@ class ClientRepository extends ServiceEntityRepository
             $qb->setMaxResults(20);
         }
 
-        return $qb->getQuery()->getResult();
+        $query = $qb->getQuery();
+
+        // Use Paginator to handle fetch-joins with setMaxResults correctly
+        $paginator = new \Doctrine\ORM\Tools\Pagination\Paginator($query, true);
+
+        return iterator_to_array($paginator->getIterator());
     }
 
     public function getDashboardMetrics(int $months = 6): array
@@ -280,7 +285,27 @@ class ClientRepository extends ServiceEntityRepository
             LIMIT 5
         ";
 
-        $riskyClients = $conn->fetchAllAssociative($sqlRisky, ['start' => $startDate]);
+        $riskyClientsRaw = $conn->fetchAllAssociative($sqlRisky, ['start' => $startDate]);
+        $riskyClients = [];
+        foreach ($riskyClientsRaw as $rc) {
+            $uuid = $rc['uuid'];
+            if (is_resource($uuid)) {
+                $uuid = stream_get_contents($uuid);
+            }
+            if (!empty($uuid) && !mb_check_encoding($uuid, 'UTF-8')) {
+                // Convert binary UUID to string format if it's not valid UTF-8
+                $hex = bin2hex($uuid);
+                $uuid = sprintf('%s-%s-%s-%s-%s',
+                    substr($hex, 0, 8),
+                    substr($hex, 8, 4),
+                    substr($hex, 12, 4),
+                    substr($hex, 16, 4),
+                    substr($hex, 20)
+                );
+            }
+            $rc['uuid'] = $uuid;
+            $riskyClients[] = $rc;
+        }
 
         // 5. New Clients (List) - keep this as objects since it's simple
         $newClientsRaw = $this->createQueryBuilder('c')

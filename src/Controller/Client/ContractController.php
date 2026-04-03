@@ -67,10 +67,11 @@ class ContractController extends AbstractController
      * @Route("/dashboard", name="dashboard_contract", methods={"GET"}, 
      * options={"description"="Statistiques du tableau de bord", "permission"="CONTRACT:DASHBOARD"})
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        // To be implemented
-        return $this->json([], 200);
+        $months = (int)$request->query->get('months', 6);
+        $data = $this->contractRepository->getDashboardMetrics($months);
+        return $this->json($data, 200);
     }
 
     /**
@@ -329,7 +330,7 @@ class ContractController extends AbstractController
             $fallbackName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $doc->getOriginalName());
 
             $response->setContentDisposition(
-                ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                ResponseHeaderBag::DISPOSITION_INLINE,
                 $doc->getOriginalName(),
                 $fallbackName
             );
