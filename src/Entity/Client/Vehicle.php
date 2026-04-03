@@ -110,7 +110,7 @@ class Vehicle
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle"})
+     * @Groups({"vehicle", "client"})
      */
     private $statut;
 

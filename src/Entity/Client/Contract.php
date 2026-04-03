@@ -237,7 +237,7 @@ class Contract
 
     /**
      * @ORM\OneToMany(targetEntity=Payment::class, mappedBy="contract")
-     * @Groups({"contract:payments"})
+     * @Groups({"contract:payments", "client"})
      * @ORM\OrderBy({"date" = "DESC", "id" = "DESC"})
      */
     private $payments;
@@ -264,7 +264,7 @@ class Contract
 
     /**
      * @ORM\OneToMany(targetEntity=ContractDocument::class, mappedBy="contract", cascade={"persist", "remove"})
-     * @Groups({"contract"})
+     * @Groups({"contract", "client"})
      */
     private $documents;
 

@@ -18,37 +18,37 @@ class ContractDocument
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"contract"})
+     * @Groups({"contract", "client"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"contract", "payment"})
+     * @Groups({"contract", "payment", "client"})
      */
     private $libelle;
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"contract", "payment"})
+     * @Groups({"contract", "payment", "client"})
      */
     private $originalName;
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"contract", "payment"})
+     * @Groups({"contract", "payment", "client"})
      */
     private $storedName;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"contract", "payment"})
+     * @Groups({"contract", "payment", "client"})
      */
     private $mimeType;
 
     /**
      * @ORM\Column(type="integer", nullable=true)
-     * @Groups({"contract", "payment"})
+     * @Groups({"contract", "payment", "client"})
      */
     private $size;
 

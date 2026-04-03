@@ -32,43 +32,43 @@ class Payment
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"payment", "contract"})
+     * @Groups({"payment", "contract", "client"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"payment", "contract"})
+     * @Groups({"payment", "contract", "client"})
      */
     private $reference;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"payment", "contract"})
+     * @Groups({"payment", "contract", "client"})
      */
     private $amount;
 
     /**
      * @ORM\Column(type="datetime_immutable", nullable=true)
-     * @Groups({"payment", "contract"})
+     * @Groups({"payment", "contract", "client"})
      */
     private $date;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"payment", "contract"})
+     * @Groups({"payment", "contract", "client"})
      */
     private $period;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"payment", "contract"})
+     * @Groups({"payment", "contract", "client"})
      */
     private $method;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"payment", "contract"})
+     * @Groups({"payment", "contract", "client"})
      */
     private $status;
 
@@ -92,7 +92,7 @@ class Payment
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"payment"})
+     * @Groups({"payment", "client"})
      */
     private $receiptUrl;
 
