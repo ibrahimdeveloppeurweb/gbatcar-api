@@ -95,6 +95,18 @@ class MaintenanceAlert
     private $billingPayer;
 
     /**
+     * @ORM\Column(type="boolean", options={"default": false})
+     * @Groups({"alert"})
+     */
+    private $isInvoiced = false;
+
+    /**
+     * @ORM\Column(type="datetime_immutable", nullable=true)
+     * @Groups({"alert"})
+     */
+    private $invoicedAt;
+
+    /**
      * @ORM\Column(type="text", nullable=true)
      * @Groups({"alert"})
      */
@@ -320,6 +332,30 @@ class MaintenanceAlert
     public function setClient(?Client $client): self
     {
         $this->client = $client;
+
+        return $this;
+    }
+
+    public function getIsInvoiced(): bool
+    {
+        return $this->isInvoiced;
+    }
+
+    public function setIsInvoiced(bool $isInvoiced): self
+    {
+        $this->isInvoiced = $isInvoiced;
+
+        return $this;
+    }
+
+    public function getInvoicedAt(): ?\DateTimeImmutable
+    {
+        return $this->invoicedAt;
+    }
+
+    public function setInvoicedAt(?\DateTimeImmutable $invoicedAt): self
+    {
+        $this->invoicedAt = $invoicedAt;
 
         return $this;
     }

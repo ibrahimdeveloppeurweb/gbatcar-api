@@ -64,7 +64,8 @@ class VehicleController extends AbstractController
      */
     public function dashboard(Request $request)
     {
-        $data = $this->vehicleManager->getDashboardData();
+        $months = $request->query->getInt('months', 6);
+        $data = $this->vehicleManager->getDashboardData($months);
         return $this->json($data, 200, [], ['groups' => ["vehicle"]]);
     }
 

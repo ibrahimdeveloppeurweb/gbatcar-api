@@ -67,10 +67,17 @@ class Maintenance
     private $cost;
 
     /**
-     * @ORM\Column(type="string", length=150, nullable=true)
+     * @ORM\Column(type="string", length=255, nullable=true)
      * @Groups({"maintenance", "vehicle"})
      */
     private $provider;
+
+    /**
+     * @ORM\ManyToOne(targetEntity=MaintenanceType::class)
+     * @ORM\JoinColumn(nullable=true)
+     * @Groups({"maintenance", "vehicle"})
+     */
+    private $maintenanceType;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
@@ -107,6 +114,18 @@ class Maintenance
      * @Groups({"maintenance"})
      */
     private $observation;
+
+    /**
+     * @ORM\Column(type="datetime_immutable", nullable=true)
+     * @Groups({"maintenance"})
+     */
+    private $startDate;
+
+    /**
+     * @ORM\Column(type="datetime_immutable", nullable=true)
+     * @Groups({"maintenance"})
+     */
+    private $endDate;
 
     // --- RELATIONS ---
 
@@ -300,6 +319,18 @@ class Maintenance
         return $this;
     }
 
+    public function getMaintenanceType(): ?MaintenanceType
+    {
+        return $this->maintenanceType;
+    }
+
+    public function setMaintenanceType(?MaintenanceType $maintenanceType): self
+    {
+        $this->maintenanceType = $maintenanceType;
+
+        return $this;
+    }
+
     public function getTechnician(): ?string
     {
         return $this->technician;
@@ -356,6 +387,30 @@ class Maintenance
     public function setKilometrage(?float $kilometrage): self
     {
         $this->kilometrage = $kilometrage;
+
+        return $this;
+    }
+
+    public function getStartDate(): ?\DateTimeImmutable
+    {
+        return $this->startDate;
+    }
+
+    public function setStartDate(?\DateTimeImmutable $startDate): self
+    {
+        $this->startDate = $startDate;
+
+        return $this;
+    }
+
+    public function getEndDate(): ?\DateTimeImmutable
+    {
+        return $this->endDate;
+    }
+
+    public function setEndDate(?\DateTimeImmutable $endDate): self
+    {
+        $this->endDate = $endDate;
 
         return $this;
     }

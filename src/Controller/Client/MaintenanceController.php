@@ -84,10 +84,13 @@ class MaintenanceController extends AbstractController
      * @Route("/dashboard", name="dashboard_maintenance", methods={"GET"}, 
      * options={"description"="Statistiques du tableau de bord", "permission"="MAINTENANCE:DASHBOARD"})
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        $metrics = $this->maintenanceRepository->getDashboardMetrics();
-        return $this->json($metrics, 200);
+        $filters = [
+            'months' => $request->query->get('months', 6)
+        ];
+        $metrics = $this->maintenanceRepository->getDashboardMetrics($filters);
+        return $this->json($metrics, 200, [], ['groups' => ['maintenance']]);
     }
 
     /**
@@ -146,7 +149,8 @@ class MaintenanceController extends AbstractController
         try {
             $data = json_decode($request->getContent());
             $status = $data->status ?? 'Terminé';
-            $maintenance = $this->maintenanceManager->changeStatus($uuid, $status);
+            $date = $data->date ?? null;
+            $maintenance = $this->maintenanceManager->changeStatus($uuid, $status, $date);
             return $this->json($maintenance, 200, [], ['groups' => ["maintenance"]]);
         }
         catch (\Exception $e) {

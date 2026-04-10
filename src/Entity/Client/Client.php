@@ -26,25 +26,25 @@ class Client
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert", "penalty"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert", "penalty"})
      */
     private $name;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert", "penalty"})
      */
     private $firstName;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"client", "vehicle", "contract", "payment", "alert"})
+     * @Groups({"client", "vehicle", "contract", "payment", "alert", "penalty"})
      */
     private $lastName;
 
@@ -86,7 +86,7 @@ class Client
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"client", "vehicle", "contract"})
+     * @Groups({"client", "vehicle", "contract", "penalty"})
      */
     private $civilite;
 
@@ -1043,5 +1043,13 @@ class Client
         $this->initialDeposit = $initialDeposit;
 
         return $this;
+    }
+
+    /**
+     * @Groups({"penalty"})
+     */
+    public function getLibelle(): string
+    {
+        return trim(($this->civilite ?? '') . ' ' . ($this->firstName ?? '') . ' ' . ($this->lastName ?? ''));
     }
 }

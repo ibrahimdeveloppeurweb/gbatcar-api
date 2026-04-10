@@ -26,13 +26,13 @@ class Brand
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"brand", "vehicle_model", "vehicle"})
+     * @Groups({"brand", "vehicle_model", "vehicle", "penalty"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"brand", "vehicle_model", "vehicle", "contract", "demand", "alert"})
+     * @Groups({"brand", "vehicle_model", "vehicle", "contract", "demand", "alert", "penalty"})
      */
     private $name;
 

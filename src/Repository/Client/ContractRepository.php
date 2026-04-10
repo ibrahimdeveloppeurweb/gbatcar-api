@@ -162,6 +162,7 @@ class ContractRepository extends ServiceEntityRepository
     {
         $conn = $this->getEntityManager()->getConnection();
         $startDate = (new \DateTime())->modify("-{$months} months")->format('Y-m-01');
+        $groupByYear = $months > 36;
 
         // 1. KPIs
         $totalContracts = (int)$conn->fetchOne("SELECT COUNT(id) FROM contract WHERE deleted_at IS NULL");
@@ -217,18 +218,97 @@ class ContractRepository extends ServiceEntityRepository
         $defectRate30d = $activeContracts30d > 0 ? round(($lateContractsCount30d / $activeContracts30d) * 100, 1) : 0;
         $defectRateTrend = $defectRate <= $defectRate30d ? 'down' : 'up';
 
-        // 2. Trends (Cashflow over selected months)
-        $sqlTrend = "
+        // 2. Trends (Historical Debt View)
+
+        // Total Expected from the beginning of time until the start of our chart
+        $totalExpectedBefore = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND expected_date < :start
+        ", ['start' => $startDate]);
+
+        // Total Paid from the beginning of time until the start of our chart
+        $totalPaidBefore = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment 
+            WHERE deleted_at IS NULL AND status IN ('VALIDÉ', 'VALIDATED') AND date < :start
+              AND type NOT IN ('Apport Initial', 'Frais de dossier', 'RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')
+        ", ['start' => $startDate]);
+
+        // Opening Debt Balance
+        $openingDebt = max(0, $totalExpectedBefore - $totalPaidBefore);
+
+        $datePart = $groupByYear ? '%Y' : '%Y-%m';
+
+        // Monthly/Yearly Expected
+        $sqlExpected = "
             SELECT 
-                DATE_FORMAT(ps.expected_date, '%Y-%m') as month,
-                SUM(ps.amount) as expected,
-                SUM(COALESCE(ps.paid_amount, 0)) as paid
+                DATE_FORMAT(ps.expected_date, '{$datePart}') as period,
+                SUM(ps.amount) as expected
             FROM payment_schedule ps
             WHERE ps.deleted_at IS NULL AND ps.expected_date >= :start AND ps.expected_date <= LAST_DAY(CURRENT_DATE())
-            GROUP BY month
-            ORDER BY month ASC
+            GROUP BY DATE_FORMAT(ps.expected_date, '{$datePart}')
+            ORDER BY period ASC
         ";
-        $trendData = $conn->fetchAllAssociative($sqlTrend, ['start' => $startDate]);
+        $expectedRaw = $conn->fetchAllAssociative($sqlExpected, ['start' => $startDate]);
+
+        // Monthly/Yearly Paid
+        $sqlPaid = "
+            SELECT 
+                DATE_FORMAT(p.date, '{$datePart}') as period,
+                SUM(p.amount) as paid
+            FROM payment p
+            WHERE p.deleted_at IS NULL 
+              AND p.status IN ('VALIDÉ', 'VALIDATED')
+              AND p.date >= :start AND p.date <= LAST_DAY(CURRENT_DATE())
+              AND p.type NOT IN ('Apport Initial', 'Frais de dossier', 'RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')
+            GROUP BY DATE_FORMAT(p.date, '{$datePart}')
+            ORDER BY period ASC
+        ";
+        $paidRaw = $conn->fetchAllAssociative($sqlPaid, ['start' => $startDate]);
+
+        // Map results
+        $expectedByPeriod = [];
+        foreach ($expectedRaw as $row)
+            $expectedByPeriod[$row['period']] = (float)$row['expected'];
+        $paidByPeriod = [];
+        foreach ($paidRaw as $row)
+            $paidByPeriod[$row['period']] = (float)$row['paid'];
+
+        // Build data points with carryover
+        $trendData = [];
+        $currentDate = new \DateTime($startDate);
+        $endDate = new \DateTime('last day of this month');
+
+        $step = $groupByYear ? '+1 year' : '+1 month';
+        $format = $groupByYear ? 'Y' : 'Y-m';
+
+        $endKey = $endDate->format($format);
+        $runningDebt = $openingDebt;
+
+        $periodKey = "";
+        $maxIter = 100;
+        $i = 0;
+        while ($i++ < $maxIter) {
+            $periodKey = $currentDate->format($format);
+            $periodExpected = $expectedByPeriod[$periodKey] ?? 0;
+            $periodPaid = $paidByPeriod[$periodKey] ?? 0;
+
+            // Target = Current period expected + unpaid from before
+            $targetForPeriod = $periodExpected + $runningDebt;
+
+            $trendData[] = [
+                'month' => $periodKey,
+                'expected' => $targetForPeriod,
+                'paid' => $periodPaid
+            ];
+
+            // Next period starting debt
+            $runningDebt = max(0, $targetForPeriod - $periodPaid);
+
+            if ($periodKey === $endKey)
+                break;
+
+            $currentDate->modify($step);
+        }
 
         // 3. Imminent Risks (Late payments > 15 days)
         $sqlRisks = "
@@ -274,5 +354,42 @@ class ContractRepository extends ServiceEntityRepository
             ],
             'imminentRisks' => $risks
         ];
+    }
+
+    public function getPenaltySummary(Contract $contract): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        // Sum total amount and paid amount directly from DB for the contract
+        $sql = "
+            SELECT 
+                SUM(COALESCE(amount, 0)) as total,
+                SUM(COALESCE(paid_amount, 0)) as paid
+            FROM penalty
+            WHERE contract_id = :contractId AND deleted_at IS NULL
+        ";
+
+        $results = $conn->fetchAssociative($sql, ['contractId' => $contract->getId()]);
+
+        $summary = [
+            'total' => (float)($results['total'] ?? 0),
+            'paid' => (float)($results['paid'] ?? 0),
+            'pending' => 0,
+            'waived' => 0
+        ];
+
+        // Calculate waived (ANNULÉ/REMISE)
+        $sqlWaived = "
+            SELECT SUM(COALESCE(amount, 0)) as waived
+            FROM penalty
+            WHERE contract_id = :contractId AND deleted_at IS NULL
+            AND (UPPER(status) LIKE 'ANNUL%' OR UPPER(status) LIKE 'REMISE%' OR UPPER(status) LIKE 'WAIVED%')
+        ";
+        $summary['waived'] = (float)$conn->fetchOne($sqlWaived, ['contractId' => $contract->getId()]);
+
+        // Pending is what remains after payments and waivers
+        $summary['pending'] = max(0, $summary['total'] - $summary['paid'] - $summary['waived']);
+
+        return $summary;
     }
 }

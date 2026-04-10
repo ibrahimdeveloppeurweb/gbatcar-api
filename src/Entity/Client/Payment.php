@@ -64,7 +64,7 @@ class Payment
      * @ORM\Column(type="string", length=100, nullable=true)
      * @Groups({"payment", "contract", "client"})
      */
-    private $method;
+    private $method = 'Espèces';
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)

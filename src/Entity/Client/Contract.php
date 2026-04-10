@@ -26,13 +26,13 @@ class Contract
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"contract", "payment", "maintenance", "client"})
+     * @Groups({"contract", "payment", "maintenance", "client", "penalty"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"contract", "payment", "maintenance", "vehicle", "client"})
+     * @Groups({"contract", "payment", "maintenance", "vehicle", "client", "penalty"})
      */
     private $reference;
 
@@ -231,7 +231,7 @@ class Contract
 
     /**
      * @ORM\OneToMany(targetEntity=ContractVehicleDemand::class, mappedBy="contract", cascade={"persist", "remove"})
-     * @Groups({"contract", "payment", "client"})
+     * @Groups({"contract", "payment", "client", "penalty"})
      */
     private $vehicleDemands;
 
@@ -253,6 +253,7 @@ class Contract
     /**
      * @ORM\OneToMany(targetEntity=Penalty::class, mappedBy="contract")
      * @Groups({"contract"})
+     * @ORM\OrderBy({"date" = "DESC", "id" = "DESC"})
      */
     private $penalties;
 
@@ -897,8 +898,8 @@ class Contract
         foreach ($this->payments as $payment) {
             $status = strtoupper($payment->getStatus() ?? '');
             if (in_array($status, ['VALIDÉ', 'VALIDATED', 'VALIDé'])) {
-                // Ignore maintenance/incident refacturations
-                if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
+                // Ignore maintenance/incident refacturations and penalties
+                if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ'])) {
                     $totalPaid += $payment->getAmount();
                 }
             }
@@ -925,35 +926,32 @@ class Contract
     }
 
     /**
-     * @Groups({"contract", "payment", "client", "payment:contract"})
+     * @Groups({"contract", "payment", "client", "payment:contract", "penalty"})
      */
     public function getVehicleSummary(): string
     {
         $vehicles = [];
 
-        // Single vehicle (legacy/specific)
-        if ($this->getVehicle()) {
-            $immat = $this->getVehicle()->getImmatriculation();
-            if ($immat) {
-                $vehicles[] = $immat;
-            }
+        // 1. Single specific vehicle
+        if ($this->vehicle) {
+            $vehicles[] = $this->vehicle->getLibelle();
         }
 
-        // Fleet/Demands
-        if ($this->getVehicleDemands()) {
-            foreach ($this->getVehicleDemands() as $demand) {
-                if ($demand->getAssignedVehicles()) {
-                    foreach ($demand->getAssignedVehicles() as $vehicle) {
-                        $immat = $vehicle->getImmatriculation();
-                        if ($immat && !in_array($immat, $vehicles)) {
-                            $vehicles[] = $immat;
-                        }
-                    }
+        // 2. Fleet vehicles from demands
+        foreach ($this->vehicleDemands as $demand) {
+            foreach ($demand->getAssignedVehicles() as $v) {
+                $lib = $v->getLibelle();
+                if (!in_array($lib, $vehicles)) {
+                    $vehicles[] = $lib;
                 }
             }
         }
 
-        return count($vehicles) > 0 ? implode(', ', $vehicles) : 'Aucun véhicule';
+        if (empty($vehicles)) {
+            return "Aucun véhicule assigné";
+        }
+
+        return implode(', ', $vehicles);
     }
 
     /**
@@ -1057,11 +1055,21 @@ class Contract
     {
         $total = 0;
         $today = new \DateTimeImmutable('today');
+
+        // 1. Overdue installments
         foreach ($this->paymentSchedules as $schedule) {
             if ($schedule->getStatus() !== 'Payé' && $schedule->getExpectedDate() < $today) {
                 $total += ($schedule->getAmount() - ($schedule->getPaidAmount() ?: 0));
             }
         }
+
+        // 2. Unpaid penalties
+        foreach ($this->penalties as $penalty) {
+            $status = strtoupper($penalty->getStatus() ?? '');
+            if (!in_array($status, ['PAYÉ', 'PAYE', 'SOLDÉ', 'SOLDE', 'ANNULÉ', 'ANNULE'])) {
+                $total += ($penalty->getAmount() - ($penalty->getPaidAmount() ?: 0));
+            }
+        }
+
         return $total;
-    }
-}
+    }}

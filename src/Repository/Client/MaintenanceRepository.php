@@ -47,44 +47,180 @@ class MaintenanceRepository extends ServiceEntityRepository
         }
     }
 
-    public function getDashboardMetrics(): array
+    public function getDashboardMetrics(array $filters = []): array
     {
-        $qb = $this->createQueryBuilder('m');
-
-        $total = (int)$qb->select('COUNT(m.id)')->getQuery()->getSingleScalarResult();
-
-        $planned = (int)$this->createQueryBuilder('m')
-            ->select('COUNT(m.id)')
-            ->where('m.status = :status')
-            ->setParameter('status', 'Planifié')
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        $inProgress = (int)$this->createQueryBuilder('m')
-            ->select('COUNT(m.id)')
-            ->where('m.status = :status')
-            ->setParameter('status', 'En cours')
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        // Total Cost this month
+        $conn = $this->getEntityManager()->getConnection();
+        $months = isset($filters['months']) ? (int)$filters['months'] : 6;
+        $startDate = new \DateTimeImmutable("-$months months 00:00:00");
+        $now = new \DateTimeImmutable();
         $startOfMonth = new \DateTimeImmutable('first day of this month 00:00:00');
-        $endOfMonth = new \DateTimeImmutable('last day of this month 23:59:59');
 
-        $totalCost = (float)$this->createQueryBuilder('m')
+        // 1. KPIs
+        $qb = $this->createQueryBuilder('m');
+        $totalInterventions = (int)$this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->where('m.dateIntervention >= :start')
+            ->setParameter('start', $startDate)
+            ->getQuery()->getSingleScalarResult();
+
+        $interventionsThisMonth = (int)$this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->where('m.dateIntervention >= :start')
+            ->setParameter('start', $startOfMonth)
+            ->getQuery()->getSingleScalarResult();
+
+        $pendingInterventions = (int)$this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->where('m.status IN (:statuses)')
+            ->setParameter('statuses', ['Planifié', 'En cours', 'En attente'])
+            ->getQuery()->getSingleScalarResult();
+
+        $completedInterventions = (int)$this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->where('m.status = :status')
+            ->setParameter('status', 'Terminé')
+            ->getQuery()->getSingleScalarResult();
+
+        $monthlyCost = (float)$this->createQueryBuilder('m')
             ->select('SUM(m.cost)')
             ->where('m.dateIntervention >= :start')
-            ->andWhere('m.dateIntervention <= :end')
             ->setParameter('start', $startOfMonth)
-            ->setParameter('end', $endOfMonth)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->getQuery()->getSingleScalarResult();
+
+        $totalCostYTD = (float)$this->createQueryBuilder('m')
+            ->select('SUM(m.cost)')
+            ->where('m.dateIntervention >= :start')
+            ->setParameter('start', new \DateTimeImmutable('first day of January this year'))
+            ->getQuery()->getSingleScalarResult();
+
+        $vehiclesInShop = (int)$this->createQueryBuilder('m')
+            ->select('COUNT(DISTINCT m.vehicle)')
+            ->where('m.status = :status')
+            ->setParameter('status', 'En cours')
+            ->getQuery()->getSingleScalarResult();
+
+        // Avg Repair Days (Dynamic Cycle Time: average of (endDate or now) - startDate)
+        $avgRepairDays = (float)$conn->fetchOne("
+            SELECT AVG(TIMESTAMPDIFF(SECOND, start_date, COALESCE(end_date, CURRENT_TIMESTAMP))) / 86400
+            FROM maintenance
+            WHERE start_date IS NOT NULL AND date_intervention >= :start AND deleted_at IS NULL
+        ", ['start' => $startOfMonth->format('Y-01-01')]); // YTD calculation for average consistency
+        if (!$avgRepairDays)
+            $avgRepairDays = 0;
+
+        // 2. Alerts (from MaintenanceAlert)
+        $alertCount = (int)$conn->fetchOne("SELECT COUNT(*) FROM maintenance_alert WHERE status != 'Clôturé' AND deleted_at IS NULL");
+        $criticalAlerts = (int)$conn->fetchOne("SELECT COUNT(*) FROM maintenance_alert WHERE severity = 'danger' AND status != 'Clôturé' AND deleted_at IS NULL");
+
+        // 3. Distribution (Intervention Types)
+        $sqlDist = "
+            SELECT mt.name as label, COUNT(m.id) as value
+            FROM maintenance m
+            JOIN maintenance_type mt ON m.maintenance_type_id = mt.id
+            WHERE m.date_intervention >= :start AND m.deleted_at IS NULL
+            GROUP BY mt.id
+            ORDER BY value DESC
+            LIMIT 5
+        ";
+        $distribution = $conn->fetchAllAssociative($sqlDist, ['start' => $startDate->format('Y-m-d H:i:s')]);
+
+        // 4. Cost Trends (Cumulative Budget model following Payment logic)
+        $groupByYear = $months > 36;
+        $dateFormat = $groupByYear ? '%Y' : '%Y-%m';
+        $step = $groupByYear ? '+1 year' : '+1 month';
+
+        $sqlRawTrends = "
+            SELECT 
+                DATE_FORMAT(date_intervention, '$dateFormat') as period,
+                SUM(cost) as total_cost
+            FROM maintenance
+            WHERE date_intervention >= DATE_SUB(CURRENT_DATE(), INTERVAL :months MONTH)
+              AND deleted_at IS NULL
+            GROUP BY period
+            ORDER BY period ASC
+        ";
+        $rawTrends = $conn->fetchAllAssociative($sqlRawTrends, ['months' => $months]);
+        $trendsMap = [];
+        foreach ($rawTrends as $row) {
+            $trendsMap[$row['period']] = (float)$row['total_cost'];
+        }
+
+        // Fetch custom budgets from DB
+        $budgetMap = [];
+        try {
+            $sqlBudgets = "SELECT period, amount FROM maintenance_budget WHERE deleted_at IS NULL";
+            $rawBudgets = $conn->fetchAllAssociative($sqlBudgets);
+            foreach ($rawBudgets as $rb) {
+                $budgetMap[$rb['period']] = (float)$rb['amount'];
+            }
+        }
+        catch (\Exception $e) { /* Table might not exist yet */
+        }
+
+        $trends = [];
+        $currentDate = (new \DateTime())->modify("-{$months} months")->modify('first day of this month');
+        $endDate = new \DateTime('last day of this month');
+        $endKey = $endDate->format($groupByYear ? 'Y' : 'Y-m');
+
+        $accumulatedBudget = 0;
+        $accumulatedCost = 0;
+        $periodicBudget = 200000; // Default fallback
+
+        for ($i = 0; $i < 100; $i++) {
+            $periodKey = $currentDate->format($groupByYear ? 'Y' : 'Y-m');
+            $periodCost = $trendsMap[$periodKey] ?? 0;
+
+            // Get budget for this period (custom or default)
+            $pBudget = 0;
+            if ($groupByYear) {
+                for ($m = 1; $m <= 12; $m++) {
+                    $mKey = $periodKey . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
+                    $pBudget += $budgetMap[$mKey] ?? 200000;
+                }
+            }
+            else {
+                $pBudget = $budgetMap[$periodKey] ?? 200000;
+            }
+
+            $periodicBudget = $pBudget;
+            $accumulatedBudget += $periodicBudget;
+            $accumulatedCost += $periodCost;
+
+            $trends[] = [
+                'month' => $periodKey,
+                'expected' => $periodicBudget, // Periodic Budget
+                'paid' => $periodCost // Periodic Actual Cost
+            ];
+
+            if ($periodKey === $endKey)
+                break;
+            $currentDate->modify($step);
+        }
+
+        // 5. Recent Items
+        $recentInterventions = $this->findByFilters(['limit' => 5]);
+        $sqlRecentAlerts = "SELECT id, reference, type, severity, status, repair_cost as repairCost, created_at as createdAt FROM maintenance_alert WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 5";
+        $accidents = $conn->fetchAllAssociative($sqlRecentAlerts);
 
         return [
-            'total' => $total,
-            'planned' => $planned,
-            'inProgress' => $inProgress,
-            'totalCostThisMonth' => $totalCost
+            'stats' => [
+                'totalInterventions' => $totalInterventions,
+                'interventionsThisMonth' => $interventionsThisMonth,
+                'pendingInterventions' => $pendingInterventions,
+                'completedInterventions' => $completedInterventions,
+                'avgRepairDays' => $avgRepairDays,
+                'totalCostYTD' => $totalCostYTD,
+                'monthlyCost' => $monthlyCost,
+                'budgetMonthly' => $periodicBudget,
+                'activeAlerts' => $alertCount,
+                'criticalAlerts' => $criticalAlerts,
+                'avgCostPerIntervention' => $totalInterventions > 0 ? $totalCostYTD / $totalInterventions : 0,
+                'vehiclesInShop' => $vehiclesInShop
+            ],
+            'distribution' => $distribution,
+            'trends' => $trends,
+            'recentInterventions' => $recentInterventions,
+            'accidents' => $accidents
         ];
     }
 

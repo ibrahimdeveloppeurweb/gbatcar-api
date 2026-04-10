@@ -2,19 +2,20 @@
 
 namespace App\Entity\Client;
 
-use App\Repository\Client\VehicleModelRepository;
+use App\Repository\Client\MaintenanceTypeRepository;
 use App\Traits\SearchableTrait;
 use App\Traits\UserObjectNoCodeTrait;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
+use Ramsey\Uuid\Uuid;
 use Symfony\Component\Serializer\Annotation\Groups;
 
 /**
- * @ORM\Entity(repositoryClass=VehicleModelRepository::class)
+ * @ORM\Entity(repositoryClass=MaintenanceTypeRepository::class)
  * @Gedmo\SoftDeleteable(fieldName="deletedAt", timeAware=false, hardDelete=true)
  */
-class VehicleModel
+class MaintenanceType
 {
     use SearchableTrait;
     use SoftDeleteableEntity;
@@ -24,22 +25,20 @@ class VehicleModel
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"vehicle_model", "brand", "vehicle", "penalty"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"vehicle_model", "brand", "vehicle", "contract", "demand", "alert", "penalty"})
+     * @Groups({"maintenance", "vehicle"})
      */
     private $name;
 
-    /**
-     * @ORM\ManyToOne(targetEntity=Brand::class, inversedBy="models")
-     * @ORM\JoinColumn(nullable=false)
-     * @Groups({"vehicle_model", "vehicle", "alert"})
-     */
-    private $brand;
+    public function __construct()
+    {
+        $this->uuid = Uuid::uuid4();
+    }
 
     public function getId(): ?int
     {
@@ -58,39 +57,13 @@ class VehicleModel
         return $this;
     }
 
-    public function getBrand(): ?Brand
-    {
-        return $this->brand;
-    }
-
-    public function setBrand(?Brand $brand): self
-    {
-        $this->brand = $brand;
-
-        return $this;
-    }
-
-    /**
-     * @Groups({"vehicle_model"})
-     */
     public function getSearchableTitle(): string
     {
-        return $this->name;
+        return $this->name ?? '';
     }
 
-    /**
-     * @Groups({"penalty"})
-     */
-    public function getLibelle(): ?string
-    {
-        return $this->name;
-    }
-
-    /**
-     * @Groups({"vehicle_model"})
-     */
     public function getSearchableDetail(): string
     {
-        return $this->brand ? 'Modèle de ' . $this->brand->getName() : 'Modèle de véhicule';
+        return 'Type d\'intervention';
     }
 }

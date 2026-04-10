@@ -24,7 +24,8 @@ class MaintenanceAlertManager
         \App\Repository\Client\VehicleRepository $vehicleRepository,
         \App\Repository\Client\ContractRepository $contractRepository,
         \Symfony\Component\HttpKernel\KernelInterface $kernel
-    ) {
+        )
+    {
         $this->em = $em;
         $this->maintenanceAlertRepository = $maintenanceAlertRepository;
         $this->vehicleRepository = $vehicleRepository;
@@ -38,12 +39,12 @@ class MaintenanceAlertManager
         $alert = new MaintenanceAlert();
         $alert->setUuid(\Ramsey\Uuid\Uuid::uuid4());
         $alert->setStatus('Ouvert');
-        
+
         // Generate Human Reference ALT-YYYY-XXX
         $year = date('Y');
         $count = $this->maintenanceAlertRepository->countByYear($year);
         $alert->setReference(sprintf('ALT-%s-%03d', $year, $count + 1));
-        
+
         $this->mapDataToEntity($data, $alert);
         $this->handleFiles($alert, $request);
 
@@ -88,6 +89,10 @@ class MaintenanceAlertManager
             throw new \Exception("Alerte introuvable.");
         }
 
+        if ($alert->getIsInvoiced()) {
+            throw new \Exception("Cet incident a déjà été facturé.");
+        }
+
         if (!$alert->getRepairCost()) {
             throw new \Exception("Le coût des réparations n'est pas renseigné.");
         }
@@ -95,15 +100,15 @@ class MaintenanceAlertManager
         $payment = new Payment();
         $payment->setAmount($alert->getRepairCost());
         $payment->setDate(new \DateTimeImmutable());
-        
+
         $contract = $alert->getContract();
         $client = $alert->getClient();
 
         // Fallback to vehicle's active contract if not set on the alert
         if (!$contract) {
             $contract = $this->em->getRepository(Contract::class)->findOneBy(
-                ['vehicle' => $alert->getVehicle()],
-                ['id' => 'DESC']
+            ['vehicle' => $alert->getVehicle()],
+            ['id' => 'DESC']
             );
         }
 
@@ -121,15 +126,17 @@ class MaintenanceAlertManager
 
         $payment->setContract($contract);
         $payment->setClient($client);
-        
+
         $refId = $alert->getReference() ?: strtoupper(substr($alert->getUuid(), 0, 8));
         $payment->setReference('INV-' . $refId);
+        $payment->setMethod('Espèces');
 
         if ($payerType === 'CLIENT') {
             $payment->setType('RÉPARATION_CLIENT');
-            $payment->setStatus('ATTENTE'); // Client needs to pay
+            $payment->setStatus('En attente'); // Client needs to pay
             $payment->setObservation("Facturation d'incident : " . $alert->getType());
-        } else {
+        }
+        else {
             $payment->setType('FRAIS_AGENCE');
             $payment->setStatus('VALIDÉ'); // Agency already "paid" by covering it
             $payment->setObservation("Prise en charge interne incident : " . $alert->getType());
@@ -149,8 +156,12 @@ class MaintenanceAlertManager
         }
 
         $this->em->persist($payment);
-        $alert->setStatus('Facturé');
+
+        // Logical Separation: We track invoicing separately from operational status
+        $alert->setIsInvoiced(true);
+        $alert->setInvoicedAt(new \DateTimeImmutable());
         $alert->setBillingPayer($payerType);
+
         $this->em->flush();
 
         return $alert;
@@ -166,13 +177,19 @@ class MaintenanceAlertManager
 
     private function mapDataToEntity(object $data, MaintenanceAlert $alert): void
     {
-        if (isset($data->type)) $alert->setType($data->type);
-        if (isset($data->severity)) $alert->setSeverity($data->severity);
-        if (isset($data->description)) $alert->setDescription($data->description);
-        if (isset($data->observation)) $alert->setObservation($data->observation);
-        if (isset($data->driverInfo)) $alert->setDriverInfo($data->driverInfo);
-        if (isset($data->repairCost)) $alert->setRepairCost((float)$data->repairCost);
-        
+        if (isset($data->type))
+            $alert->setType($data->type);
+        if (isset($data->severity))
+            $alert->setSeverity($data->severity);
+        if (isset($data->description))
+            $alert->setDescription($data->description);
+        if (isset($data->observation))
+            $alert->setObservation($data->observation);
+        if (isset($data->driverInfo))
+            $alert->setDriverInfo($data->driverInfo);
+        if (isset($data->repairCost))
+            $alert->setRepairCost((float)$data->repairCost);
+
         if (!empty($data->date)) {
             $alert->setDate(new \DateTimeImmutable($data->date));
         }
@@ -191,8 +208,9 @@ class MaintenanceAlertManager
                 $alert->setContract($contract);
             }
         }
-        
-        if (isset($data->status)) $alert->setStatus($data->status);
+
+        if (isset($data->status))
+            $alert->setStatus($data->status);
     }
 
     private function handleFiles(MaintenanceAlert $alert, \Symfony\Component\HttpFoundation\Request $request): void

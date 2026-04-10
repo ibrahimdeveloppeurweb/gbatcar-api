@@ -14,7 +14,7 @@ class ContractVehicleDemand
 {
     /**
      * @ORM\ManyToMany(targetEntity=Vehicle::class, inversedBy="vehicleDemands")
-     * @Groups({"contract", "demand", "client"})
+     * @Groups({"contract", "demand", "client", "penalty"})
      */
     private $assignedVehicles;
 

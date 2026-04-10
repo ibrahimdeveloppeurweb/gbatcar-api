@@ -159,6 +159,7 @@ class PaymentRepository extends ServiceEntityRepository
     {
         $conn = $this->getEntityManager()->getConnection();
         $startDate = (new \DateTime())->modify("-{$months} months")->format('Y-m-01');
+        $groupByYear = $months > 36;
 
         // Expected MRR for the selected period
         $mrr = (float)$conn->fetchOne("
@@ -196,25 +197,105 @@ class PaymentRepository extends ServiceEntityRepository
             WHERE status IN ('VALIDÉ', 'VALIDATED') AND deleted_at IS NULL
         ");
 
-        // 2. Cashflow Trends (Monthly Breakdown from schedules)
-        $sqlTrend = "
+        // 2. Cashflow Trends (Historical Debt View)
+
+        // Total Expected (Schedules) from the beginning of time until the start of our chart
+        $totalExpectedBefore = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND expected_date < :start
+        ", ['start' => $startDate]);
+
+        // Total Paid from the beginning of time until the start of our chart
+        $totalPaidBefore = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment 
+            WHERE deleted_at IS NULL AND status IN ('VALIDÉ', 'VALIDATED') AND date < :start
+              AND type NOT IN ('Apport Initial', 'Frais de dossier', 'RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')
+        ", ['start' => $startDate]);
+
+        // Opening Debt Balance (What was owed at the moment the chart starts)
+        $openingDebt = max(0, $totalExpectedBefore - $totalPaidBefore);
+
+        $datePart = $groupByYear ? '%Y' : '%Y-%m';
+
+        // Monthly/Yearly Expected
+        $sqlExpected = "
             SELECT 
-                DATE_FORMAT(ps.expected_date, '%Y-%m') as month,
-                SUM(ps.amount) as expected,
-                SUM(COALESCE(ps.paid_amount, 0)) as paid
+                DATE_FORMAT(ps.expected_date, '{$datePart}') as period,
+                SUM(ps.amount) as expected
             FROM payment_schedule ps
             WHERE ps.deleted_at IS NULL AND ps.expected_date >= :start AND ps.expected_date <= LAST_DAY(CURRENT_DATE())
-            GROUP BY month
-            ORDER BY month ASC
+            GROUP BY DATE_FORMAT(ps.expected_date, '{$datePart}')
+            ORDER BY period ASC
         ";
-        $trendData = $conn->fetchAllAssociative($sqlTrend, ['start' => $startDate]);
+        $expectedRaw = $conn->fetchAllAssociative($sqlExpected, ['start' => $startDate]);
+
+        // Monthly/Yearly Paid
+        $sqlPaid = "
+            SELECT 
+                DATE_FORMAT(p.date, '{$datePart}') as period,
+                SUM(p.amount) as paid
+            FROM payment p
+            WHERE p.deleted_at IS NULL 
+              AND p.status IN ('VALIDÉ', 'VALIDATED')
+              AND p.date >= :start AND p.date <= LAST_DAY(CURRENT_DATE())
+              AND p.type NOT IN ('Apport Initial', 'Frais de dossier', 'RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')
+            GROUP BY DATE_FORMAT(p.date, '{$datePart}')
+            ORDER BY period ASC
+        ";
+        $paidRaw = $conn->fetchAllAssociative($sqlPaid, ['start' => $startDate]);
+
+        // Map results for iterative calculation
+        $expectedByPeriod = [];
+        foreach ($expectedRaw as $row)
+            $expectedByPeriod[$row['period']] = (float)$row['expected'];
+
+        $paidByPeriod = [];
+        foreach ($paidRaw as $row)
+            $paidByPeriod[$row['period']] = (float)$row['paid'];
+
+        // Build data points
+        $trendData = [];
+        $currentDate = new \DateTime($startDate);
+        $endDate = new \DateTime('last day of this month');
+
+        $step = $groupByYear ? '+1 year' : '+1 month';
+        $format = $groupByYear ? 'Y' : 'Y-m';
+
+        $endKey = $endDate->format($format);
+        $runningDebt = $openingDebt;
+
+        $periodKey = "";
+        $maxIter = 100;
+        $i = 0;
+        while ($i++ < $maxIter) {
+            $periodKey = $currentDate->format($format);
+            $periodExpected = $expectedByPeriod[$periodKey] ?? 0;
+            $periodPaid = $paidByPeriod[$periodKey] ?? 0;
+
+            // Target = Current period expected + everything unpaid from BEFORE
+            $targetForPeriod = $periodExpected + $runningDebt;
+
+            $trendData[] = [
+                'month' => $periodKey,
+                'expected' => $targetForPeriod,
+                'paid' => $periodPaid
+            ];
+
+            // Update remaining debt for the next period's starting balance
+            $runningDebt = max(0, $targetForPeriod - $periodPaid);
+
+            if ($periodKey === $endKey)
+                break;
+
+            $currentDate->modify($step);
+        }
 
         // 3. Payment Methods (Donut)
         $sqlMethods = "
-            SELECT method as name, COUNT(id) as value
+            SELECT COALESCE(method, 'Espèces') as name, COUNT(id) as value
             FROM payment
             WHERE deleted_at IS NULL AND status IN ('VALIDÉ', 'VALIDATED')
-            GROUP BY method
+            GROUP BY name
         ";
         $methodsData = $conn->fetchAllAssociative($sqlMethods);
 
@@ -222,7 +303,8 @@ class PaymentRepository extends ServiceEntityRepository
         $sqlRecent = "
             SELECT 
                 p.uuid as id, c.first_name as firstName, c.last_name as lastName,
-                ctr.reference as contractId, p.amount, p.date, p.method, p.status,
+                ctr.reference as contractId, p.amount, p.date, 
+                COALESCE(p.method, 'Espèces') as method, p.status,
                 p.reference, p.recorded_by as recordedBy, p.created_at as createdAt
             FROM payment p
             JOIN client c ON p.client_id = c.id
@@ -268,9 +350,19 @@ class PaymentRepository extends ServiceEntityRepository
                 'overdueCount' => $overdueCount,
                 'nextMonthForecast' => $nextMonthForecast,
                 'cashBalance' => $cashBalance,
-                'avgPaymentDelay' => 0, // Placeholder
-                'activePenalties' => 0, // Placeholder
-                'penaltiesAmount' => 0 // Placeholder
+                'avgPaymentDelay' => (float)$conn->fetchOne("
+                    SELECT COALESCE(AVG(DATEDIFF(paid_at, expected_date)), 0)
+                    FROM payment_schedule
+                    WHERE status = 'Payé' AND deleted_at IS NULL AND expected_date >= :start AND paid_at IS NOT NULL
+                ", ['start' => $startDate]),
+                'activePenalties' => (int)$conn->fetchOne("
+                    SELECT COUNT(id) FROM penalty 
+                    WHERE deleted_at IS NULL AND status NOT IN ('PAYÉ', 'SOLDÉ', 'ANNULÉ', 'WAIVED')
+                "),
+                'penaltiesAmount' => (float)$conn->fetchOne("
+                    SELECT SUM(amount - COALESCE(paid_amount, 0)) FROM penalty 
+                    WHERE deleted_at IS NULL AND status NOT IN ('PAYÉ', 'SOLDÉ', 'ANNULÉ', 'WAIVED')
+                ")
             ],
             'trends' => [
                 'cashflow' => $trendData
