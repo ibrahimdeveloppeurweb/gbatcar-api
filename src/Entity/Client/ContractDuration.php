@@ -2,19 +2,20 @@
 
 namespace App\Entity\Client;
 
-use App\Repository\Client\VehicleModelRepository;
+use App\Repository\Client\ContractDurationRepository;
 use App\Traits\SearchableTrait;
 use App\Traits\UserObjectNoCodeTrait;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
+use Ramsey\Uuid\Uuid;
 use Symfony\Component\Serializer\Annotation\Groups;
 
 /**
- * @ORM\Entity(repositoryClass=VehicleModelRepository::class)
+ * @ORM\Entity(repositoryClass=ContractDurationRepository::class)
  * @Gedmo\SoftDeleteable(fieldName="deletedAt", timeAware=false, hardDelete=true)
  */
-class VehicleModel
+class ContractDuration
 {
     use SearchableTrait;
     use SoftDeleteableEntity;
@@ -24,22 +25,26 @@ class VehicleModel
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"vehicle_model", "brand", "vehicle", "penalty"})
+     * @Groups({"duration", "contract", "client"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255)
-     * @Groups({"vehicle_model", "brand", "vehicle", "contract", "demand", "alert", "penalty"})
+     * @Groups({"duration", "contract", "client"})
      */
     private $name;
 
     /**
-     * @ORM\ManyToOne(targetEntity=Brand::class, inversedBy="models")
-     * @ORM\JoinColumn(nullable=false)
-     * @Groups({"vehicle_model", "vehicle", "alert"})
+     * @ORM\Column(type="integer")
+     * @Groups({"duration", "contract", "client"})
      */
-    private $brand;
+    private $monthsCount;
+
+    public function __construct()
+    {
+        $this->uuid = Uuid::uuid4();
+    }
 
     public function getId(): ?int
     {
@@ -58,39 +63,25 @@ class VehicleModel
         return $this;
     }
 
-    public function getBrand(): ?Brand
+    public function getMonthsCount(): ?int
     {
-        return $this->brand;
+        return $this->monthsCount;
     }
 
-    public function setBrand(?Brand $brand): self
+    public function setMonthsCount(int $monthsCount): self
     {
-        $this->brand = $brand;
+        $this->monthsCount = $monthsCount;
 
         return $this;
     }
 
-    /**
-     * @Groups({"vehicle_model"})
-     */
     public function getSearchableTitle(): string
     {
-        return $this->name;
+        return $this->name ?? '';
     }
 
-    /**
-     * @Groups({"penalty"})
-     */
-    public function getLibelle(): ?string
-    {
-        return $this->name;
-    }
-
-    /**
-     * @Groups({"vehicle_model"})
-     */
     public function getSearchableDetail(): string
     {
-        return $this->brand ? 'Modèle de ' . $this->brand->getName() : 'Modèle de véhicule';
+        return 'Durée de contrat';
     }
 }

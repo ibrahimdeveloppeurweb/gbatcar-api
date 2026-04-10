@@ -5,6 +5,7 @@ namespace App\Controller\Client;
 use App\Entity\Client\Contract;
 use App\Entity\Client\PaymentSchedule;
 use App\Manager\Client\PaymentScheduleManager;
+use App\Manager\Client\PenaltyManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -57,8 +58,6 @@ class PaymentScheduleController extends AbstractController
             return $this->json(['message' => 'Format de date invalide. Utilisez YYYY-MM-DD'], 400);
         }
 
-        // Logic: If installments not provided, calculate based on contract duration & frequency
-        // Logic: If installments not provided, calculate based on contract duration & frequency
         if ($installments <= 0) {
             $months = $contract->getDurationInMonths() ?: 1;
             $freq = strtolower($contract->getPaymentFrequency() ?: 'monthly');
@@ -66,22 +65,23 @@ class PaymentScheduleController extends AbstractController
 
             if (str_contains($freq, 'hebdo') || str_contains($freq, 'weekly')) {
                 $installments = $months * 4;
-            } elseif (str_contains($freq, 'journalier') || str_contains($freq, 'daily') || str_contains($freq, 'quotidien')) {
+            }
+            elseif (str_contains($freq, 'journalier') || str_contains($freq, 'daily') || str_contains($freq, 'quotidien')) {
                 $installments = $months * 30;
             }
         }
 
         try {
-            // SAFETY: deleteExistingSchedule will now throw if payments exist
             if (!$contract->getPaymentSchedules()->isEmpty()) {
                 $this->scheduleManager->deleteExistingSchedule($contract);
             }
 
-            $schedules = $this->scheduleManager->generateSchedule($contract, (float) $totalAmount, (int) $installments, $startDate, (int) $ruleDay, (bool) $includeSundays);
+            $schedules = $this->scheduleManager->generateSchedule($contract, (float)$totalAmount, (int)$installments, $startDate, (int)$ruleDay, (bool)$includeSundays);
 
             $json = $this->serializer->serialize($schedules, 'json', ['groups' => ['payment_schedule']]);
             return new JsonResponse($json, 201, [], true);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         }
     }
@@ -94,7 +94,7 @@ class PaymentScheduleController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
         $contractUuid = $data['contractUuid'] ?? null;
-        $days = (int) ($data['days'] ?? 0);
+        $days = (int)($data['days'] ?? 0);
 
         if (!$contractUuid || $days <= 0) {
             return $this->json(['message' => 'Paramètres invalides (contractUuid, days > 0 requis)'], 400);
@@ -111,7 +111,8 @@ class PaymentScheduleController extends AbstractController
                 'message' => sprintf('Échéancier prolongé de %d jours. %d échéances décalées.', $days, $count),
                 'shiftedCount' => $count
             ]);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         }
     }
@@ -124,7 +125,7 @@ class PaymentScheduleController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
         $contractUuid = $data['contractUuid'] ?? null;
-        $suspend = (bool) ($data['suspend'] ?? true);
+        $suspend = (bool)($data['suspend'] ?? true);
 
         if (!$contractUuid) {
             return $this->json(['message' => 'contractUuid requis'], 400);
@@ -141,11 +142,11 @@ class PaymentScheduleController extends AbstractController
             }
             $contract->setStatus('SUSPENDU');
             $message = 'Contrat suspendu avec succès.';
-        } else {
+        }
+        else {
             if ($contract->getStatus() !== 'SUSPENDU') {
                 return $this->json(['message' => 'Le contrat n\'est pas suspendu'], 400);
             }
-            // Logic: toggle back to 'VALIDÉ' (active)
             $contract->setStatus('VALIDÉ');
             $message = 'Contrat réactivé avec succès.';
         }
@@ -166,19 +167,13 @@ class PaymentScheduleController extends AbstractController
         if (!$contract) {
             return $this->json(['message' => 'Contrat introuvable'], 404);
         }
-        // Force refresh of payment coverage to ensure score and statuses are accurate after any change
         $this->scheduleManager->refreshScheduleCoverage($contract);
-        
-        // Clear EntityManager to force reload from DB in the next findBy, 
-        // avoiding stale entities from the Identity Map
         $this->em->clear();
-        
-        // Re-load contract and schedules after clear
         $contract = $this->em->getRepository(Contract::class)->findOneBy(['uuid' => $contractUuid]);
 
         $schedules = $this->em->getRepository(PaymentSchedule::class)->findBy(
-            ['contract' => $contract],
-            ['expectedDate' => 'ASC']
+        ['contract' => $contract],
+        ['expectedDate' => 'ASC']
         );
 
         $json = $this->serializer->serialize($schedules, 'json', ['groups' => ['payment_schedule']]);
@@ -207,6 +202,32 @@ class PaymentScheduleController extends AbstractController
             'message' => sprintf('%d échéance(s) marquée(s) "En retard".', $count),
             'updated' => $count,
             'scope' => $contract ? 'Contrat ' . $contractUuid : 'Tous les contrats actifs'
+        ]);
+    }
+
+    /**
+     * @Route("/calculate-penalties", name="calculate_penalties", methods={"POST"},
+     * options={"description"="Calculer les pénalités pour un contrat", "permission"="PAYMENT:SCHEDULE:CALCULATE:PENALTY"})
+     */
+    public function calculatePenalties(Request $request, PenaltyManager $penaltyManager): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $contractUuid = $data['contractUuid'] ?? null;
+
+        if (!$contractUuid) {
+            return $this->json(['message' => 'contractUuid requis'], 400);
+        }
+
+        $contract = $this->em->getRepository(Contract::class)->findOneBy(['uuid' => $contractUuid]);
+        if (!$contract) {
+            return $this->json(['message' => 'Contrat introuvable'], 404);
+        }
+
+        $penalties = $penaltyManager->calculatePenaltiesForContract($contract);
+
+        return $this->json([
+            'message' => sprintf('%d pénalité(s) calculée(s)/mise(s) à jour.', count($penalties)),
+            'count' => count($penalties)
         ]);
     }
 }

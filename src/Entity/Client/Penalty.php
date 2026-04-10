@@ -3,6 +3,7 @@
 namespace App\Entity\Client;
 
 use App\Repository\Client\PenaltyRepository;
+use App\Entity\Client\PaymentSchedule;
 use App\Traits\SearchableTrait;
 use App\Traits\UserObjectNoCodeTrait;
 use Doctrine\ORM\Mapping as ORM;
@@ -25,63 +26,69 @@ class Penalty
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $reference;
 
     /**
      * @ORM\Column(type="text", nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $reason;
 
     /**
      * @ORM\Column(type="float", nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $amount;
 
     /**
      * @ORM\Column(type="datetime_immutable", nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $date;
 
     /**
      * @ORM\Column(type="date_immutable", nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $dueDate;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $status;
 
     /**
      * @ORM\Column(type="string", length=100, nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $severity;
 
     /**
      * @ORM\Column(type="text", nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $observation;
 
     /**
-     * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"penalty", "compliance"})
+     * @ORM\Column(type="text", nullable=true)
+     * @Groups({"penalty", "compliance", "contract"})
      */
     private $proofUrl;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     * @Groups({"penalty", "compliance", "contract"})
+     */
+    private $paidAmount;
 
     // --- RELATIONS ---
 
@@ -106,9 +113,28 @@ class Penalty
      */
     private $vehicle;
 
+    /**
+     * @ORM\ManyToOne(targetEntity=PaymentSchedule::class)
+     * @ORM\JoinColumn(nullable=true)
+     * @Groups({"penalty"})
+     */
+    private $paymentSchedule;
+
     public function __construct()
     {
         $this->uuid = Uuid::uuid4();
+    }
+
+    public function getPaymentSchedule(): ?PaymentSchedule
+    {
+        return $this->paymentSchedule;
+    }
+
+    public function setPaymentSchedule(?PaymentSchedule $paymentSchedule): self
+    {
+        $this->paymentSchedule = $paymentSchedule;
+
+        return $this;
     }
 
     public function getId(): ?int
@@ -272,6 +298,18 @@ class Penalty
     public function setProofUrl(?string $proofUrl): self
     {
         $this->proofUrl = $proofUrl;
+
+        return $this;
+    }
+
+    public function getPaidAmount(): ?float
+    {
+        return $this->paidAmount ?: 0;
+    }
+
+    public function setPaidAmount(?float $paidAmount): self
+    {
+        $this->paidAmount = $paidAmount;
 
         return $this;
     }

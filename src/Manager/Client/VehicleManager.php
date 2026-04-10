@@ -64,9 +64,9 @@ class VehicleManager
         $this->em->flush();
     }
 
-    public function getDashboardData(): array
+    public function getDashboardData(int $months = 6): array
     {
-        return $this->vehicleRepository->getDashboardMetrics();
+        return $this->vehicleRepository->getDashboardMetrics($months);
     }
 
     private function handleFiles(Vehicle $vehicle, Request $request): void

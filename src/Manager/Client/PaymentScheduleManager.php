@@ -63,43 +63,49 @@ class PaymentScheduleManager
                     $currentDate->modify('+1 month');
                     $year = $currentDate->format('Y');
                     $month = $currentDate->format('m');
-                    $maxDays = cal_days_in_month(CAL_GREGORIAN, (int) $month, (int) $year);
+                    $maxDays = cal_days_in_month(CAL_GREGORIAN, (int)$month, (int)$year);
                     $targetDay = min($ruleDay, $maxDays);
-                    $currentDate->setDate((int) $year, (int) $month, $targetDay);
-                } elseif ($isWeekly) {
+                    $currentDate->setDate((int)$year, (int)$month, $targetDay);
+                }
+                elseif ($isWeekly) {
                     $currentDate->modify('+1 week');
                     // Ensure it stays on the ruleDay (1=Mon..7=Sun)
-                    $currentDayOfWeek = (int) $currentDate->format('N');
+                    $currentDayOfWeek = (int)$currentDate->format('N');
                     $daysDiff = $ruleDay - $currentDayOfWeek;
                     if ($daysDiff !== 0) {
                         $currentDate->modify(($daysDiff > 0 ? '+' : '') . $daysDiff . ' days');
                     }
-                } elseif ($isDaily) {
+                }
+                elseif ($isDaily) {
                     $currentDate->modify('+1 day');
                     // Si on n'inclut PAS les dimanches et que l'on tombe sur un dimanche (7)
                     if (!$includeSundays && $currentDate->format('N') == 7) {
                         file_put_contents('payment_gen_trace.log', "SKIP (Sunday): " . $currentDate->format('Y-m-d') . "\n", FILE_APPEND);
                         continue; // On saute la génération de cette échéance
                     }
-                } else {
+                }
+                else {
                     $currentDate->modify('+1 month');
                 }
                 $currentDate->setTime(0, 0, 0);
-            } else {
+            }
+            else {
                 // First installment alignment
                 if ($isMonthly) {
                     $year = $currentDate->format('Y');
                     $month = $currentDate->format('m');
-                    $maxDays = cal_days_in_month(CAL_GREGORIAN, (int) $month, (int) $year);
+                    $maxDays = cal_days_in_month(CAL_GREGORIAN, (int)$month, (int)$year);
                     $targetDay = min($ruleDay, $maxDays);
-                    $currentDate->setDate((int) $year, (int) $month, $targetDay);
-                } elseif ($isWeekly) {
-                    $currentDayOfWeek = (int) $currentDate->format('N');
+                    $currentDate->setDate((int)$year, (int)$month, $targetDay);
+                }
+                elseif ($isWeekly) {
+                    $currentDayOfWeek = (int)$currentDate->format('N');
                     $daysDiff = $ruleDay - $currentDayOfWeek;
                     if ($daysDiff !== 0) {
                         $currentDate->modify(($daysDiff > 0 ? '+' : '') . $daysDiff . ' days');
                     }
-                } elseif ($isDaily) {
+                }
+                elseif ($isDaily) {
                     // Si on n'inclut PAS les dimanches et que la date de début est un dimanche
                     if (!$includeSundays && $currentDate->format('N') == 7) {
                         $currentDate->modify('+1 day'); // On décale le début au lundi
@@ -143,7 +149,8 @@ class PaymentScheduleManager
 
         try {
             $this->em->flush();
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             $this->logger->error('Error generating payment schedule: ' . $e->getMessage());
             throw $e;
         }
@@ -159,12 +166,12 @@ class PaymentScheduleManager
      */
     public function coverWithPayment(Contract $contract, float $paymentAmount, ?\DateTimeInterface $paidAt = null): array
     {
-        $paidAt = $paidAt ? \DateTimeImmutable::createFromInterface($paidAt) : new \DateTimeImmutable();
+        $paidAt = $paidAt ?\DateTimeImmutable::createFromInterface($paidAt) : new \DateTimeImmutable();
         $covered = [];
         // Load all pending/overdue installments in chronological order
         $pendingSchedules = $this->em->getRepository(PaymentSchedule::class)->findBy(
-            ['contract' => $contract, 'status' => ['À venir', 'En retard', 'Partiel']],
-            ['expectedDate' => 'ASC']
+        ['contract' => $contract, 'status' => ['À venir', 'En retard', 'Partiel']],
+        ['expectedDate' => 'ASC']
         );
 
         $remaining = $paymentAmount;
@@ -184,7 +191,8 @@ class PaymentScheduleManager
                 $schedule->setPaidAmount($due);
                 $schedule->setPaidAt($paidAt);
                 $remaining -= $stillOwed;
-            } else {
+            }
+            else {
                 // Partially covers this installment
                 $schedule->setStatus('Partiel');
                 $schedule->setPaidAmount($alreadyPaid + $remaining);
@@ -223,7 +231,7 @@ class PaymentScheduleManager
             ->andWhere('p.type NOT IN (:negatedTypes)')
             ->setParameter('contract', $contract)
             ->setParameter('statuses', ['VALIDÉ', 'VALIDATED', 'Validé'])
-            ->setParameter('negatedTypes', ['Apport Initial', 'Frais de dossier', 'RÉPARATION_CLIENT', 'FRAIS_AGENCE'])
+            ->setParameter('negatedTypes', ['Apport Initial', 'Frais de dossier', 'RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ'])
             ->orderBy('p.date', 'ASC')
             ->getQuery()
             ->getResult();
@@ -242,7 +250,8 @@ class PaymentScheduleManager
 
                 if (count($uniquePeriods) > 4) {
                     $periodStr = $uniquePeriods[0] . ' -> ' . end($uniquePeriods);
-                } else {
+                }
+                else {
                     $periodStr = implode(', ', $uniquePeriods);
                 }
 
@@ -273,10 +282,12 @@ class PaymentScheduleManager
 
         if ($frequency === 'Daily') {
             return $date->format('d/m/Y');
-        } elseif ($frequency === 'Weekly') {
+        }
+        elseif ($frequency === 'Weekly') {
             // ISO-8601 week number
             return 'Sem ' . $date->format('W');
-        } else {
+        }
+        else {
             return $date->format('m/Y');
         }
     }
@@ -295,7 +306,7 @@ class PaymentScheduleManager
         }
 
         $qb = $this->em->createQueryBuilder();
-        $query = $qb->update(PaymentSchedule::class, 's')
+        $query = $qb->update(PaymentSchedule::class , 's')
             ->set('s.status', ':overdueStatus')
             ->where('s.expectedDate < :today')
             ->andWhere('s.status IN (:statuses)')
@@ -318,7 +329,7 @@ class PaymentScheduleManager
         $today = new \DateTimeImmutable('today', new \DateTimeZone('UTC'));
 
         $qb = $this->em->createQueryBuilder();
-        $query = $qb->update(PaymentSchedule::class, 's')
+        $query = $qb->update(PaymentSchedule::class , 's')
             ->set('s.status', ':overdueStatus')
             ->where('s.expectedDate < :today')
             ->andWhere('s.status IN (:statuses)')
@@ -368,8 +379,8 @@ class PaymentScheduleManager
         // Shift only 'À venir', 'En retard' and 'Partiel' (for the remaining balance)
         // Note: For 'Partiel', we shift the date, but the paid amount remains recorded.
         $unpaidSchedules = $this->em->getRepository(PaymentSchedule::class)->findBy(
-            ['contract' => $contract, 'status' => ['À venir', 'En retard', 'Partiel']],
-            ['expectedDate' => 'ASC']
+        ['contract' => $contract, 'status' => ['À venir', 'En retard', 'Partiel']],
+        ['expectedDate' => 'ASC']
         );
 
         foreach ($unpaidSchedules as $schedule) {

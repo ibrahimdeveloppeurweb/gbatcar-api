@@ -26,25 +26,25 @@ class Vehicle
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "penalty"})
      */
     private $id;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert", "penalty"})
      */
     private $immatriculation;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert", "penalty"})
      */
     private $marque;
 
     /**
      * @ORM\Column(type="string", length=255, nullable=true)
-     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert"})
+     * @Groups({"vehicle", "client", "contract", "compliance", "maintenance", "payment", "alert", "penalty"})
      */
     private $modele;
 
@@ -1134,5 +1134,44 @@ class Vehicle
         $this->vehicleDemands->removeElement($vehicleDemand);
 
         return $this;
+    }
+
+    /**
+     * @return Contract|null
+     * @Groups({"vehicle"})
+     */
+    public function getActiveContract(): ?Contract
+    {
+        $activeStatusesList = ['ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'ACTIF', 'VALIDATED', 'VALIDé'];
+
+        if ($this->contracts !== null) {
+            foreach ($this->contracts as $contract) {
+                if (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours'])) {
+                    return $contract;
+                }
+            }
+        }
+
+        if ($this->vehicleDemands !== null) {
+            foreach ($this->vehicleDemands as $demand) {
+                $contract = $demand->getContract();
+                if ($contract && (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours']))) {
+                    return $contract;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @Groups({"penalty", "contract", "vehicle"})
+     */
+    public function getLibelle(): string
+    {
+        if ($this->vehicleModel) {
+            return $this->vehicleModel->getLibelle() . ' (' . $this->immatriculation . ')';
+        }
+        return trim(($this->marque ?? '') . ' ' . ($this->modele ?? '')) . ' (' . $this->immatriculation . ')';
     }
 }

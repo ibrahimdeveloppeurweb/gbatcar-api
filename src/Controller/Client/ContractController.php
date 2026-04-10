@@ -84,7 +84,13 @@ class ContractController extends AbstractController
         if (!$item) {
             return $this->json(['message' => 'Not found'], 404);
         }
-        return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
+
+        $summary = $this->contractRepository->getPenaltySummary($item);
+
+        return $this->json([
+            'contract' => $item,
+            'penaltySummary' => $summary
+        ], 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
     }
 
     /**

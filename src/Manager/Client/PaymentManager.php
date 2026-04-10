@@ -122,8 +122,11 @@ class PaymentManager
         // Auto-cover schedule installments if this is a validated payment
         $status = strtoupper($payment->getStatus() ?? '');
         if (in_array($status, ['VALIDÉ', 'VALIDATED', 'VALIDé']) && $payment->getContract()) {
+            if ($payment->getType() === 'PÉNALITÉ') {
+                $this->handlePenaltyPayment($payment);
+            }
             // Only for standard rent payments
-            if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
+            elseif (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
                 $this->scheduleManager->refreshScheduleCoverage($payment->getContract());
             }
         }
@@ -183,6 +186,10 @@ class PaymentManager
         if (isset($data->method)) {
             $payment->setMethod($data->method);
         }
+
+        if (!$payment->getMethod()) {
+            $payment->setMethod('Espèces');
+        }
         if (isset($data->reference)) {
             $payment->setReference($data->reference);
         }
@@ -236,13 +243,17 @@ class PaymentManager
 
         // Only if successfully validated, we update the payment schedule
         if (in_array($status, ['VALIDÉ', 'VALIDATED']) && $payment->getContract()) {
+            if ($payment->getType() === 'PÉNALITÉ') {
+                $this->handlePenaltyPayment($payment);
+                $this->updateContractBalance($payment->getContract());
+            }
             // Only for standard rent payments
-            if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
+            elseif (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ'])) {
                 $this->scheduleManager->coverWithPayment($payment->getContract(), $payment->getAmount(), $payment->getDate());
                 $this->updateContractBalance($payment->getContract());
-            } else {
-                // For repairs, we still update the contract balance (if it includes them, 
-                // but wait, I just modified updateContractBalance to exclude them too!)
+            }
+            else {
+                // For repairs, we still update the contract balance
                 $this->updateContractBalance($payment->getContract());
             }
         }
@@ -276,7 +287,7 @@ class PaymentManager
             ->andWhere('p.type NOT IN (:excludedTypes)')
             ->setParameter('contract', $contract)
             ->setParameter('statuses', ['VALIDÉ', 'VALIDATED', 'Validé'])
-            ->setParameter('excludedTypes', ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])
+            ->setParameter('excludedTypes', ['RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ', 'Apport Initial', 'Frais de dossier'])
             ->getQuery()
             ->getResult();
 
@@ -304,6 +315,56 @@ class PaymentManager
             if (method_exists($contract, 'getUnpaidAmount')) {
                 $client->setUnpaidAmount($contract->getUnpaidAmount());
             }
+        }
+
+        $this->em->flush();
+    }
+
+    /**
+     * Allocates a payment of type "PÉNALITÉ" to any outstanding penalties for the contract.
+     */
+    public function handlePenaltyPayment(Payment $payment): void
+    {
+        $contract = $payment->getContract();
+        if (!$contract) {
+            return;
+        }
+
+        // We use our predefined repository method but with updated and standardized statuses
+        $pendingPenalties = $this->em->getRepository(\App\Entity\Client\Penalty::class)->createQueryBuilder('p')
+            ->where('p.contract = :contract')
+            ->andWhere('p.status IN (:statuses)')
+            ->setParameter('contract', $contract)
+            ->setParameter('statuses', ['EN ATTENTE', 'IMPAYÉ', 'Non payé', 'Impayé', 'CRITIQUE', 'PARTIAL', 'Partiel'])
+            ->orderBy('p.dueDate', 'ASC')
+            ->addOrderBy('p.date', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $amountLeft = $payment->getAmount();
+
+        foreach ($pendingPenalties as $penalty) {
+            if ($amountLeft <= 0) {
+                break;
+            }
+
+            $due = $penalty->getAmount() - ($penalty->getPaidAmount() ?: 0);
+            if ($due <= 0) {
+                continue;
+            }
+
+            $pay = min($amountLeft, $due);
+            $penalty->setPaidAmount(($penalty->getPaidAmount() ?: 0) + $pay);
+            $amountLeft -= $pay;
+
+            if ($penalty->getPaidAmount() >= $penalty->getAmount()) {
+                $penalty->setStatus('PAYÉ');
+            }
+            else {
+                $penalty->setStatus('PARTIEL');
+            }
+
+            $this->em->persist($penalty);
         }
 
         $this->em->flush();

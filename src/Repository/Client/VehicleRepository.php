@@ -206,7 +206,7 @@ class VehicleRepository extends ServiceEntityRepository
         return $query->getQuery()->getResult();
     }
 
-    public function getDashboardMetrics()
+    public function getDashboardMetrics(int $months = 6)
     {
         $conn = $this->getEntityManager()->getConnection();
 
@@ -215,8 +215,15 @@ class VehicleRepository extends ServiceEntityRepository
             SELECT 
                 COUNT(*) as total_fleet,
                 COALESCE(SUM(purchase_price), 0) as total_value,
-                SUM(CASE WHEN statut = 'Assigné' THEN 1 ELSE 0 END) as active_count,
-                SUM(CASE WHEN statut = 'En Maintenance' THEN 1 ELSE 0 END) as maintenance_count,
+                SUM(CASE WHEN EXISTS (
+                    SELECT 1 FROM contract c 
+                    LEFT JOIN contract_vehicle_demand_vehicle ad ON vehicle.id = ad.vehicle_id
+                    LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                    WHERE (c.vehicle_id = vehicle.id OR c.id = vd.contract_id)
+                    AND c.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                ) THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN EXISTS (SELECT 1 FROM maintenance m WHERE m.vehicle_id = vehicle.id AND m.status IN ('En cours', 'In Progress', 'EN_COURS') AND m.deleted_at IS NULL) THEN 1 ELSE 0 END) as maintenance_count,
+                (SELECT COALESCE(SUM(cost), 0) FROM maintenance m2 WHERE m2.status IN ('En cours', 'In Progress', 'EN_COURS') AND m2.deleted_at IS NULL) as active_maintenance_cost,
                 SUM(CASE WHEN statut = 'Vendu' THEN 1 ELSE 0 END) as sold_count,
                 (
                     SELECT COUNT(DISTINCT v2.id)
@@ -245,45 +252,166 @@ class VehicleRepository extends ServiceEntityRepository
         ";
         $kpis = $conn->executeQuery($sqlKpi)->fetchAssociative();
 
-        // 2. Distribution par Statut
-        $sqlDist = "SELECT statut, COUNT(*) as count FROM vehicle WHERE deleted_at IS NULL GROUP BY statut";
-        $distribution = $conn->executeQuery($sqlDist)->fetchAllAssociative();
+        // 2. Distribution par Statut (Refined)
+        $sqlDist = "
+            SELECT 
+                SUM(CASE WHEN is_renting = 1 THEN 1 ELSE 0 END) as renting_count,
+                SUM(CASE WHEN has_maint = 1 THEN 1 ELSE 0 END) as maintenance_count,
+                SUM(CASE WHEN is_renting = 0 AND has_maint = 0 AND (statut = 'Disponible' OR statut = 'Available') THEN 1 ELSE 0 END) as available_count
+            FROM (
+                SELECT v.id, v.statut,
+                    (SELECT COUNT(*) FROM contract c 
+                     LEFT JOIN contract_vehicle_demand_vehicle ad ON v.id = ad.vehicle_id
+                     LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                     WHERE (c.vehicle_id = v.id OR c.id = vd.contract_id)
+                     AND c.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                    ) > 0 as is_renting,
+                    (SELECT COUNT(*) FROM maintenance m 
+                     WHERE m.vehicle_id = v.id 
+                     AND m.status IN ('En cours', 'In Progress', 'EN_COURS')
+                     AND m.deleted_at IS NULL
+                    ) > 0 as has_maint
+                FROM vehicle v
+                WHERE v.deleted_at IS NULL
+            ) as v_stats
+        ";
+        $distRaw = $conn->executeQuery($sqlDist)->fetchAssociative();
 
-        // 3. Trends (6 derniers mois - simulation as no history table yet)
+        $distribution = [
+            ['statut' => 'En Location-Vente', 'count' => (int)$distRaw['renting_count']],
+            ['statut' => 'Disponible', 'count' => (int)$distRaw['available_count']],
+            ['statut' => 'En Maintenance', 'count' => (int)$distRaw['maintenance_count']]
+        ];
+
+        // 3. Trends (Real Maintenance Costs)
+        $groupByYear = $months > 36;
+        $dateFormat = $groupByYear ? '%Y' : '%Y-%m';
+
+        // Fetch custom budgets from DB
+        $budgetMap = [];
+        try {
+            $sqlBudgets = "SELECT period, amount FROM maintenance_budget WHERE deleted_at IS NULL";
+            $rawBudgets = $conn->fetchAllAssociative($sqlBudgets);
+            foreach ($rawBudgets as $rb) {
+                $budgetMap[$rb['period']] = (float)$rb['amount'];
+            }
+        }
+        catch (\Exception $e) { /* Table might not exist yet */
+        }
+
+        $sqlTrendsMaint = "
+            SELECT 
+                DATE_FORMAT(date_intervention, '$dateFormat') as period,
+                SUM(cost) as total_cost
+            FROM maintenance
+            WHERE date_intervention >= DATE_SUB(CURRENT_DATE(), INTERVAL :months MONTH)
+            AND deleted_at IS NULL
+            GROUP BY DATE_FORMAT(date_intervention, '$dateFormat')
+            ORDER BY period ASC
+        ";
+        $maintDataRaw = $conn->executeQuery($sqlTrendsMaint, ['months' => $months])->fetchAllAssociative();
+
+        // Map raw data for easy access
+        $maintMap = [];
+        foreach ($maintDataRaw as $row) {
+            $maintMap[$row['period']] = (float)$row['total_cost'];
+        }
+
+        // Generate full period list for the chart
+        $maintenanceTrends = [];
+        $budgetTrends = []; // Still zero as no budget entity is linked
+
+        $startDate = new \DateTime();
+        $startDate->modify("-" . ($months - 1) . " months");
+        if ($groupByYear) {
+            $startDate->modify("first day of january this year");
+        }
+        else {
+            $startDate->modify("first day of this month");
+        }
+
+        $endDate = new \DateTime();
+        $endDate->modify("first day of this month");
+
+        $current = clone $startDate;
+        $maxIter = 200;
+        $iter = 0;
+
+        $endKey = $endDate->format($groupByYear ? 'Y' : 'Y-m');
+
+        while ($iter < $maxIter) {
+            $iter++;
+            $periodKey = $current->format($groupByYear ? 'Y' : 'Y-m');
+
+            $maintenanceTrends[] = [
+                'period' => $periodKey,
+                'month' => $current->format('n'),
+                'year' => $current->format('Y'),
+                'cost' => $maintMap[$periodKey] ?? 0
+            ];
+
+            $periodicBudget = 0;
+            if ($groupByYear) {
+                for ($m = 1; $m <= 12; $m++) {
+                    $mKey = $periodKey . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
+                    $periodicBudget += $budgetMap[$mKey] ?? 200000;
+                }
+            }
+            else {
+                $periodicBudget = $budgetMap[$periodKey] ?? 200000;
+            }
+
+            $budgetTrends[] = [
+                'period' => $periodKey,
+                'month' => $current->format('n'),
+                'year' => $current->format('Y'),
+                'amount' => $periodicBudget
+            ];
+
+            if ($periodKey === $endKey)
+                break;
+
+            if ($groupByYear) {
+                $current->modify("+1 year");
+            }
+            else {
+                $current->modify("+1 month");
+            }
+        }
+
         $trends = [
-            'labels' => ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
-            'data' => [65, 78, 85, 92, 98, 105], // Croissance simulée
-            'revenue' => [12000000, 14500000, 16000000, 18500000, 19200000, 21500000],
-            'budget' => [] // Kept empty as no budget entity exists yet
+            'maintenance' => $maintenanceTrends,
+            'budget' => $budgetTrends
         ];
 
         // 4. Alertes Véhicules (100% Dynamic from DB triggers)
         $sqlAlerts = "
             (
+                -- ALERTE MAINTENANCE (Vidange)
                 SELECT 
                     v.id, v.uuid, v.immatriculation, v.marque, v.modele, 
-                    c.last_name as client_last_name, c.first_name as client_first_name,
-                    'Entretien requis (Kilométrage atteint)' as problem,
-                    'Critique' as niveau,
+                    COALESCE(cl.last_name, cl2.last_name, c.last_name) as client_last_name,
+                    COALESCE(cl.first_name, cl2.first_name, c.first_name) as client_first_name,
+                    CASE 
+                        WHEN v.kilometrage >= v.prochain_entretien THEN CONCAT('Vidange dépassée de ', (v.kilometrage - v.prochain_entretien), ' km')
+                        ELSE 'Entretien prévu bientôt'
+                    END as problem,
+                    CASE 
+                        WHEN v.kilometrage >= v.prochain_entretien THEN 'Critique'
+                        ELSE 'Attention'
+                    END as niveau,
                     0 as cost
                 FROM vehicle v
                 LEFT JOIN client c ON v.client_id = c.id
-                WHERE v.kilometrage >= v.prochain_entretien
-                AND v.prochain_entretien IS NOT NULL
-                AND v.deleted_at IS NULL
-            )
-            UNION ALL
-            (
-                SELECT 
-                    v.id, v.uuid, v.immatriculation, v.marque, v.modele, 
-                    c.last_name as client_last_name, c.first_name as client_first_name,
-                    'Alerte Maintenance' as problem,
-                    'Attention' as niveau,
-                    0 as cost
-                FROM vehicle v
-                LEFT JOIN client c ON v.client_id = c.id
-                WHERE v.maintenance_alert = 1
-                AND (v.kilometrage < v.prochain_entretien OR v.prochain_entretien IS NULL)
+                -- Join contracts to get client if not direct
+                LEFT JOIN contract ctr ON v.id = ctr.vehicle_id AND ctr.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN client cl ON ctr.client_id = cl.id
+                -- Join fleet assignment
+                LEFT JOIN contract_vehicle_demand_vehicle ad ON v.id = ad.vehicle_id
+                LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                LEFT JOIN contract ctr2 ON vd.contract_id = ctr2.id AND ctr2.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN client cl2 ON ctr2.client_id = cl2.id
+                WHERE (v.maintenance_alert = 1 OR v.kilometrage >= v.prochain_entretien)
                 AND v.deleted_at IS NULL
             )
             UNION ALL
@@ -342,17 +470,69 @@ class VehicleRepository extends ServiceEntityRepository
             )
             UNION ALL
             (
+                -- ALERTE COMPLIANCE (Assurance, CT, etc.) - Only the latest document per type
                 SELECT 
                     v.id, v.uuid, v.immatriculation, v.marque, v.modele, 
-                    c.last_name as client_last_name, c.first_name as client_first_name,
-                    'Alerte Compliance' as problem,
-                    'Attention' as niveau,
-                    0 as cost
+                    COALESCE(cl.last_name, cl2.last_name, c.last_name) as client_last_name,
+                    COALESCE(cl.first_name, cl2.first_name, c.first_name) as client_first_name,
+                    CONCAT(doc.type, 
+                        CASE 
+                            WHEN doc.end_date < CURRENT_DATE() THEN ' expiré'
+                            ELSE CONCAT(' expire dans ', DATEDIFF(doc.end_date, CURRENT_DATE()), ' jours')
+                        END
+                    ) as problem,
+                    CASE 
+                        WHEN doc.end_date < CURRENT_DATE() THEN 'Critique'
+                        ELSE 'Attention'
+                    END as niveau,
+                    doc.renewal_cost as cost
                 FROM vehicle v
                 LEFT JOIN client c ON v.client_id = c.id
+                -- Join contracts to get client if not direct
+                LEFT JOIN contract ctr ON v.id = ctr.vehicle_id AND ctr.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN client cl ON ctr.client_id = cl.id
+                -- Join fleet assignment
+                LEFT JOIN contract_vehicle_demand_vehicle ad ON v.id = ad.vehicle_id
+                LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                LEFT JOIN contract ctr2 ON vd.contract_id = ctr2.id AND ctr2.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN client cl2 ON ctr2.client_id = cl2.id
                 JOIN vehicle_compliance_document doc ON doc.vehicle_id = v.id
+                -- Filter to take ONLY the most recent doc per type
+                INNER JOIN (
+                    SELECT vehicle_id, type, MAX(end_date) as latest_date
+                    FROM vehicle_compliance_document
+                    WHERE deleted_at IS NULL
+                    GROUP BY vehicle_id, type
+                ) latest_doc_filter ON doc.vehicle_id = latest_doc_filter.vehicle_id 
+                    AND doc.type = latest_doc_filter.type 
+                    AND doc.end_date = latest_doc_filter.latest_date
                 WHERE doc.end_date <= DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)
                 AND doc.deleted_at IS NULL
+                AND v.deleted_at IS NULL
+            )
+            UNION ALL
+            (
+                -- ALERTE MAINTENANCE PROLONGÉE (> 3 jours en cours)
+                SELECT 
+                    v.id, v.uuid, v.immatriculation, v.marque, v.modele, 
+                    COALESCE(cl.last_name, cl2.last_name, c.last_name) as client_last_name,
+                    COALESCE(cl.first_name, cl2.first_name, c.first_name) as client_first_name,
+                    CONCAT('Maintenance immobilisée depuis ', DATEDIFF(CURRENT_DATE(), m.start_date), ' jours') as problem,
+                    'Critique' as niveau,
+                    m.cost as cost
+                FROM vehicle v
+                JOIN maintenance m ON m.vehicle_id = v.id
+                LEFT JOIN client c ON v.client_id = c.id
+                LEFT JOIN contract ctr ON v.id = ctr.vehicle_id AND ctr.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN client cl ON ctr.client_id = cl.id
+                LEFT JOIN contract_vehicle_demand_vehicle ad ON v.id = ad.vehicle_id
+                LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                LEFT JOIN contract ctr2 ON vd.contract_id = ctr2.id AND ctr2.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
+                LEFT JOIN client cl2 ON ctr2.client_id = cl2.id
+                WHERE m.status IN ('EN COURS', 'En cours', 'EN_PROGRESS')
+                AND m.start_date IS NOT NULL
+                AND DATEDIFF(CURRENT_DATE(), m.start_date) > 3
+                AND m.deleted_at IS NULL
                 AND v.deleted_at IS NULL
             )
         ";
@@ -380,20 +560,26 @@ class VehicleRepository extends ServiceEntityRepository
 
         // 5. Compliance Rate (Simulation derived from docs table)
         $sqlComp = "SELECT COUNT(*) FROM vehicle_compliance_document WHERE end_date > CURRENT_DATE() AND deleted_at IS NULL";
+        $totalExpectedDocs = $kpis['total_fleet'] * 2;
         try {
             $validDocs = (int)$conn->fetchOne($sqlComp);
-            $complianceRate = $kpis['total_fleet'] > 0 ? ($validDocs / ($kpis['total_fleet'] * 2)) * 100 : 0; // Avg 2 docs per vehicle
+            $complianceRate = $kpis['total_fleet'] > 0 ? ($validDocs / $totalExpectedDocs) * 100 : 0; // Avg 2 docs per vehicle
         }
         catch (\Exception $e) {
+            $validDocs = 0;
             $complianceRate = 0;
         }
 
         return [
-            'kpis' => $kpis,
+            'kpis' => array_merge($kpis, [
+                'budgetMonthly' => $periodicBudget
+            ]),
             'distribution' => $distribution,
             'trends' => $trends,
             'alerts' => $alerts,
-            'complianceRate' => $complianceRate
+            'complianceRate' => round($complianceRate, 2),
+            'validDocs' => $validDocs,
+            'totalExpectedDocs' => $totalExpectedDocs
         ];
     }
 }

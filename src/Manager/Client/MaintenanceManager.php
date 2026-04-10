@@ -7,22 +7,27 @@ use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\Client\MaintenanceRepository;
 use App\Repository\Client\VehicleRepository;
 use App\Entity\Admin\User;
+use App\Entity\Client\MaintenanceType;
+use App\Repository\Client\MaintenanceTypeRepository;
 
 class MaintenanceManager
 {
     private $em;
     private $maintenanceRepository;
     private $vehicleRepository;
+    private $maintenanceTypeRepository;
 
     public function __construct(
         EntityManagerInterface $em,
         MaintenanceRepository $maintenanceRepository,
-        VehicleRepository $vehicleRepository
+        VehicleRepository $vehicleRepository,
+        MaintenanceTypeRepository $maintenanceTypeRepository
         )
     {
         $this->em = $em;
         $this->maintenanceRepository = $maintenanceRepository;
         $this->vehicleRepository = $vehicleRepository;
+        $this->maintenanceTypeRepository = $maintenanceTypeRepository;
     }
 
     public function create(object $data, ?User $user = null): Maintenance
@@ -34,7 +39,7 @@ class MaintenanceManager
             $maintenance->setCreateBy($user);
         }
 
-        $this->mapDataToEntity($data, $maintenance);
+        $this->mapDataToEntity($data, $maintenance, $user);
 
         $this->em->persist($maintenance);
         $this->em->flush();
@@ -49,14 +54,14 @@ class MaintenanceManager
             throw new \Exception("Intervention introuvable ou supprimée.");
         }
 
-        $this->mapDataToEntity($data, $maintenance);
+        $this->mapDataToEntity($data, $maintenance, $this->maintenanceRepository->findOneByUuid($uuid)->getCreateBy()); // Approximate user from existing record if possible
 
         $this->em->flush();
 
         return $maintenance;
     }
 
-    public function changeStatus(string $uuid, string $status): Maintenance
+    public function changeStatus(string $uuid, string $status, ?string $date = null): Maintenance
     {
         $maintenance = $this->maintenanceRepository->findOneByUuid($uuid);
         if (!$maintenance) {
@@ -64,6 +69,16 @@ class MaintenanceManager
         }
 
         $maintenance->setStatus($status);
+
+        $dt = $date ? new \DateTimeImmutable($date) : new \DateTimeImmutable();
+
+        if ($status === 'En cours') {
+            $maintenance->setStartDate($dt);
+        }
+        elseif ($status === 'Terminé' || $status === 'Résolu') {
+            $maintenance->setEndDate($dt);
+        }
+
         $this->em->flush();
 
         return $maintenance;
@@ -76,7 +91,7 @@ class MaintenanceManager
         return $maintenance;
     }
 
-    private function mapDataToEntity(object $data, Maintenance $maintenance): void
+    private function mapDataToEntity(object $data, Maintenance $maintenance, ?User $user = null): void
     {
         if (isset($data->vehicle)) {
             $vehicle = $this->vehicleRepository->findOneByUuid($data->vehicle);
@@ -89,8 +104,24 @@ class MaintenanceManager
             }
         }
 
-        if (isset($data->type))
+        if (isset($data->reference))
+            $maintenance->setReference($data->reference);
+        if (isset($data->type)) {
             $maintenance->setType($data->type);
+
+            // Sync with MaintenanceType entity
+            $type = $this->maintenanceTypeRepository->findOneBy(['name' => $data->type]);
+            if (!$type) {
+                $type = new MaintenanceType();
+                $type->setName($data->type);
+                if ($user) {
+                    $type->setCreateBy($user);
+                }
+                $this->em->persist($type);
+                $this->em->flush();
+            }
+            $maintenance->setMaintenanceType($type);
+        }
         if (isset($data->prestataire))
             $maintenance->setProvider($data->prestataire);
         if (isset($data->provider))

@@ -12,21 +12,21 @@ trait UserObjectNoCodeTrait
     /**
      * @var UuidInterface
      * @ORM\Column(type="uuid", length=255, unique=true)
-     * @Groups({"user", "admin", "setting", "path", "role", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert"})
+     * @Groups({"user", "admin", "setting", "path", "role", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert", "penalty"})
      */
     private $uuid;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="create")
-     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert"})
+     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert", "penalty"})
      */
     private $createdAt;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="update")
-     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance"})
+     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "penalty"})
      */
     private $updatedAt;
 
@@ -87,7 +87,7 @@ trait UserObjectNoCodeTrait
     }
 
     /**
-     * @Groups({"user", "admin", "setting", "compliance", "client", "contract", "payment", "maintenance", "vehicle"})
+     * @Groups({"user", "admin", "setting", "compliance", "client", "contract", "payment", "maintenance", "vehicle", "penalty"})
      */
     public function getCreate(): ?string
     {
