@@ -4,6 +4,7 @@ namespace App\Controller\Client;
 
 use App\Manager\Client\ClientManager;
 use App\Repository\Client\ClientRepository;
+use App\Manager\Admin\AuditLogManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -15,14 +16,17 @@ class ClientController extends AbstractController
 {
     private $clientRepository;
     private $clientManager;
+    private $auditLogManager;
 
     public function __construct(
         ClientRepository $clientRepository,
-        ClientManager $clientManager
+        ClientManager $clientManager,
+        AuditLogManager $auditLogManager
         )
     {
         $this->clientRepository = $clientRepository;
         $this->clientManager = $clientManager;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -60,6 +64,13 @@ class ClientController extends AbstractController
 
         try {
             $client = $this->clientManager->create($data, $request);
+
+            $this->auditLogManager->log(
+                'Client',
+                'Création',
+                sprintf('Nouveau client ajouté : %s %s', $client->getFirstName(), $client->getLastName())
+            );
+
             return $this->json($client, 201, [], $this->getContext());
         }
         catch (\Exception $e) {
@@ -93,6 +104,13 @@ class ClientController extends AbstractController
 
         try {
             $client = $this->clientManager->update($uuid, $data, $request);
+
+            $this->auditLogManager->log(
+                'Client',
+                'Modification',
+                sprintf('Mise à jour du client : %s %s', $client->getFirstName(), $client->getLastName())
+            );
+
             return $this->json($client, 200, [], ['groups' => ["client"]]);
         }
         catch (\Exception $e) {
@@ -112,7 +130,15 @@ class ClientController extends AbstractController
         }
 
         try {
+            $name = $client->getFirstName() . ' ' . $client->getLastName();
             $this->clientManager->delete($client);
+
+            $this->auditLogManager->log(
+                'Client',
+                'Suppression',
+                sprintf('Suppression du client : %s', $name)
+            );
+
             return $this->json(['message' => 'Client supprimé avec succès.'], 200);
         }
         catch (\Exception $e) {
@@ -133,6 +159,13 @@ class ClientController extends AbstractController
 
         try {
             $this->clientManager->validate($client);
+
+            $this->auditLogManager->log(
+                'Client',
+                'Validation',
+                sprintf('Validation du client : %s %s', $client->getFirstName(), $client->getLastName())
+            );
+
             return $this->json($client, 200, [], $this->getContext());
         }
         catch (\Exception $e) {

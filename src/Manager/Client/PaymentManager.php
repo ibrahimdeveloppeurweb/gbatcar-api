@@ -359,6 +359,7 @@ class PaymentManager
 
             if ($penalty->getPaidAmount() >= $penalty->getAmount()) {
                 $penalty->setStatus('PAYÉ');
+                $penalty->setPaidAt($payment->getDate());
             }
             else {
                 $penalty->setStatus('PARTIEL');

@@ -95,15 +95,26 @@ class ContractRepository extends ServiceEntityRepository
                 ->setParameter('startDateMax', new \DateTime($filters['startDateMax']));
         }
 
-        if (isset($filters['progressMin'])) {
-            // progress = (paidAmount / totalAmount) * 100
-            $qb->andWhere('(c.paidAmount / NULLIF(c.totalAmount, 0)) * 100 >= :progressMin')
-                ->setParameter('progressMin', $filters['progressMin']);
-        }
+        if (isset($filters['progressMin']) || isset($filters['progressMax'])) {
+            if (isset($filters['progressMin'])) {
+                $subMin = "SELECT SUM(p_min.amount) FROM App\Entity\Client\Payment p_min " .
+                    "WHERE p_min.contract = c AND p_min.deletedAt IS NULL " .
+                    "AND (p_min.status IN ('VALIDÉ', 'VALIDATED', 'VALIDé') OR LOWER(p_min.status) IN ('validé', 'validated')) " .
+                    "AND p_min.type NOT IN ('RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')";
 
-        if (isset($filters['progressMax'])) {
-            $qb->andWhere('(c.paidAmount / NULLIF(c.totalAmount, 0)) * 100 <= :progressMax')
-                ->setParameter('progressMax', $filters['progressMax']);
+                $qb->andWhere("( (c.totalAmount * :progressMin / 100) + COALESCE(c.fraisDossier, 0) ) <= ($subMin)")
+                    ->setParameter('progressMin', $filters['progressMin']);
+            }
+
+            if (isset($filters['progressMax'])) {
+                $subMax = "SELECT SUM(p_max.amount) FROM App\Entity\Client\Payment p_max " .
+                    "WHERE p_max.contract = c AND p_max.deletedAt IS NULL " .
+                    "AND (p_max.status IN ('VALIDÉ', 'VALIDATED', 'VALIDé') OR LOWER(p_max.status) IN ('validé', 'validated')) " .
+                    "AND p_max.type NOT IN ('RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')";
+
+                $qb->andWhere("( (c.totalAmount * :progressMax / 100) + COALESCE(c.fraisDossier, 0) ) >= ($subMax)")
+                    ->setParameter('progressMax', $filters['progressMax']);
+            }
         }
 
         $qb->orderBy('c.createdAt', 'DESC');
@@ -183,12 +194,31 @@ class ContractRepository extends ServiceEntityRepository
             WHERE deleted_at IS NULL AND status IN (?)
         ", [$activeStatuses], [\Doctrine\DBAL\Connection::PARAM_STR_ARRAY]);
 
-        // MRR Attendu (current month)
-        $mrr = (float)$conn->fetchOne("
+        $firstDayOfMonth = (new \DateTime())->format('Y-m-01');
+
+        // Total Expected from the beginning of time until the start of this month
+        $totalExpBeforeMonth = (float)$conn->fetchOne("
             SELECT SUM(amount) FROM payment_schedule 
-            WHERE deleted_at IS NULL AND expected_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
+            WHERE deleted_at IS NULL AND expected_date < :start
+        ", ['start' => $firstDayOfMonth]);
+
+        // Total Paid from the beginning of time until the start of this month
+        $totalPaidBeforeMonth = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment 
+            WHERE deleted_at IS NULL AND status IN ('VALIDÉ', 'VALIDATED') AND date < :start
+              AND type NOT IN ('Apport Initial', 'Frais de dossier', 'RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')
+        ", ['start' => $firstDayOfMonth]);
+
+        $carryOverDebt = max(0, $totalExpBeforeMonth - $totalPaidBeforeMonth);
+
+        // Expected for current month
+        $currentMonthExpected = (float)$conn->fetchOne("
+            SELECT SUM(amount) FROM payment_schedule 
+            WHERE deleted_at IS NULL AND expected_date >= :start 
             AND expected_date <= LAST_DAY(CURRENT_DATE())
-        ");
+        ", ['start' => $firstDayOfMonth]);
+
+        $mrr = $currentMonthExpected + $carryOverDebt;
 
         // MRR (Last month)
         $lastMonthStart = (new \DateTime())->modify("-1 month")->format('Y-m-01');
@@ -197,7 +227,7 @@ class ContractRepository extends ServiceEntityRepository
             SELECT SUM(amount) FROM payment_schedule 
             WHERE deleted_at IS NULL AND expected_date >= :start AND expected_date <= :end
         ", ['start' => $lastMonthStart, 'end' => $lastMonthEnd]);
-        $mrrGrowth = $mrrLastMonth > 0 ? round((($mrr - $mrrLastMonth) / $mrrLastMonth) * 100, 1) : 0;
+        $mrrGrowth = $mrrLastMonth > 0 ? round((($currentMonthExpected - $mrrLastMonth) / $mrrLastMonth) * 100, 1) : 0;
 
         // Defect Rate (Contracts with at least one overdue schedule / active contracts)
         $lateContractsCount = (int)$conn->fetchOne("
@@ -310,19 +340,39 @@ class ContractRepository extends ServiceEntityRepository
             $currentDate->modify($step);
         }
 
-        // 3. Imminent Risks (Late payments > 15 days)
+        // 3. Imminent Risks (Late payments > 10 days)
+        // L'exposition (value) doit être la somme totale des impayés (en retard ou partiel) du contrat,
+        // pas seulement ceux qui datent de plus de 10 jours.
         $sqlRisks = "
             SELECT 
                 c.reference as id, 
                 CONCAT(cl.last_name, ' ', cl.first_name) as client,
                 'Retard de paiement critique' as issue,
                 'danger' as severity,
-                SUM(ps.amount - COALESCE(ps.paid_amount, 0)) as value
+                (
+                    SELECT SUM(ps_all.amount - COALESCE(ps_all.paid_amount, 0))
+                    FROM payment_schedule ps_all
+                    WHERE ps_all.contract_id = c.id
+                    AND ps_all.deleted_at IS NULL
+                    AND ps_all.status IN ('En retard', 'Partiel')
+                ) as value,
+                COALESCE(
+                    (SELECT CONCAT(v.marque, ' ', v.modele, ' (', v.immatriculation, ')') FROM vehicle v WHERE v.id = c.vehicle_id),
+                    (
+                        SELECT GROUP_CONCAT(CONCAT(v.marque, ' ', v.modele, ' (', v.immatriculation, ')') SEPARATOR ', ')
+                        FROM contract_vehicle_demand cvd
+                        JOIN contract_vehicle_demand_vehicle cvdv ON cvdv.contract_vehicle_demand_id = cvd.id
+                        JOIN vehicle v ON v.id = cvdv.vehicle_id
+                        WHERE cvd.contract_id = c.id
+                    ),
+                    'Véhicule Engagé'
+                ) as vehicle_info
             FROM contract c
             JOIN client cl ON c.client_id = cl.id
             JOIN payment_schedule ps ON ps.contract_id = c.id
-            WHERE ps.deleted_at IS NULL AND ps.status IN ('En retard', 'Partiel') 
-            AND ps.expected_date < DATE_SUB(CURRENT_DATE(), INTERVAL 15 DAY)
+            WHERE ps.deleted_at IS NULL 
+            AND ps.status IN ('En retard', 'Partiel') 
+            AND ps.expected_date < DATE_SUB(CURRENT_DATE(), INTERVAL 10 DAY)
             GROUP BY c.id
             ORDER BY value DESC
             LIMIT 5
@@ -335,7 +385,8 @@ class ContractRepository extends ServiceEntityRepository
                 'client' => $r['client'],
                 'issue' => $r['issue'],
                 'severity' => $r['severity'],
-                'value' => (float)$r['value']
+                'value' => (float)$r['value'],
+                'vehicle_info' => $r['vehicle_info'] ?? 'Véhicule Engagé'
             ];
         }
 

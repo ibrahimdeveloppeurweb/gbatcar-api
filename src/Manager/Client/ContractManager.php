@@ -309,6 +309,22 @@ class ContractManager
             throw new \Exception("Impossible de supprimer un contrat validé.");
         }
 
+        // Release main vehicle
+        if ($vehicle = $contract->getVehicle()) {
+            $vehicle->setStatut('Disponible');
+            $vehicle->setClient(null);
+            $this->em->persist($vehicle);
+        }
+
+        // Release fleet vehicles (from demands)
+        foreach ($contract->getVehicleDemands() as $demand) {
+            foreach ($demand->getAssignedVehicles() as $v) {
+                $v->setStatut('Disponible');
+                $v->setClient(null);
+                $this->em->persist($v);
+            }
+        }
+
         $contract->setDeletedAt(new \DateTime());
         $this->em->flush();
         return $contract;

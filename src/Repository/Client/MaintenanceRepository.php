@@ -81,6 +81,18 @@ class MaintenanceRepository extends ServiceEntityRepository
             ->setParameter('status', 'Terminé')
             ->getQuery()->getSingleScalarResult();
 
+        $plannedInterventions = (int)$this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->where('m.status = :status')
+            ->setParameter('status', 'Planifié')
+            ->getQuery()->getSingleScalarResult();
+
+        $inProgressInterventions = (int)$this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->where('m.status = :status')
+            ->setParameter('status', 'En cours')
+            ->getQuery()->getSingleScalarResult();
+
         $monthlyCost = (float)$this->createQueryBuilder('m')
             ->select('SUM(m.cost)')
             ->where('m.dateIntervention >= :start')
@@ -207,6 +219,8 @@ class MaintenanceRepository extends ServiceEntityRepository
                 'totalInterventions' => $totalInterventions,
                 'interventionsThisMonth' => $interventionsThisMonth,
                 'pendingInterventions' => $pendingInterventions,
+                'plannedInterventions' => $plannedInterventions,
+                'inProgressInterventions' => $inProgressInterventions,
                 'completedInterventions' => $completedInterventions,
                 'avgRepairDays' => $avgRepairDays,
                 'totalCostYTD' => $totalCostYTD,

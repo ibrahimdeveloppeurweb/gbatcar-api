@@ -7,6 +7,7 @@ use App\Manager\Client\MaintenanceManager;
 use App\Repository\Client\MaintenanceDocumentRepository;
 use App\Repository\Client\MaintenanceRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Manager\Admin\AuditLogManager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -22,18 +23,21 @@ class MaintenanceController extends AbstractController
     private $maintenanceManager;
     private $em;
     private $documentRepository;
+    private $auditLogManager;
 
     public function __construct(
         MaintenanceRepository $maintenanceRepository,
         MaintenanceManager $maintenanceManager,
         EntityManagerInterface $em,
-        MaintenanceDocumentRepository $documentRepository
+        MaintenanceDocumentRepository $documentRepository,
+        AuditLogManager $auditLogManager
         )
     {
         $this->maintenanceRepository = $maintenanceRepository;
         $this->maintenanceManager = $maintenanceManager;
         $this->em = $em;
         $this->documentRepository = $documentRepository;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -73,6 +77,13 @@ class MaintenanceController extends AbstractController
         try {
             $data = json_decode($request->getContent());
             $item = $this->maintenanceManager->create($data, $this->getUser());
+
+            $this->auditLogManager->log(
+                'Entretien',
+                'Création',
+                sprintf('Nouvelle intervention programmée de type %s', clone $item->getType() ?? '?')
+            );
+
             return $this->json($item, 201, [], ['groups' => ["maintenance"]]);
         }
         catch (\Exception $e) {
@@ -115,6 +126,13 @@ class MaintenanceController extends AbstractController
         try {
             $data = json_decode($request->getContent());
             $item = $this->maintenanceManager->update($uuid, $data);
+
+            $this->auditLogManager->log(
+                'Entretien',
+                'Modification',
+                sprintf('Mise à jour de l\'intervention %s', clone $item->getType() ?? '?')
+            );
+
             return $this->json($item, 200, [], ['groups' => ["maintenance"]]);
         }
         catch (\Exception $e) {
@@ -131,7 +149,14 @@ class MaintenanceController extends AbstractController
         try {
             $item = $this->maintenanceRepository->findOneByUuid($uuid);
             if ($item) {
+                $type = $item->getType();
                 $this->maintenanceManager->delete($item);
+
+                $this->auditLogManager->log(
+                    'Entretien',
+                    'Suppression',
+                    sprintf('Suppression de l\'intervention %s', $type)
+                );
             }
             return $this->json(['message' => 'Intervention supprimée'], 200);
         }
@@ -151,6 +176,13 @@ class MaintenanceController extends AbstractController
             $status = $data->status ?? 'Terminé';
             $date = $data->date ?? null;
             $maintenance = $this->maintenanceManager->changeStatus($uuid, $status, $date);
+
+            $this->auditLogManager->log(
+                'Entretien',
+                'Changement de statut',
+                sprintf('Le statut de l\'intervention est passé à %s', $status)
+            );
+
             return $this->json($maintenance, 200, [], ['groups' => ["maintenance"]]);
         }
         catch (\Exception $e) {

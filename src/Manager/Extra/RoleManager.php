@@ -10,6 +10,7 @@ use App\Repository\Admin\UserRepository;
 use App\Repository\Extra\PathRepository as ExtraPathRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\Extra\RoleRepository;
+use Ramsey\Uuid\Uuid;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
@@ -27,7 +28,7 @@ class RoleManager
         UserRepository $userRepository,
         TokenStorageInterface $tokenStorage,
         RoleRepository $roleRepository
-    )
+        )
     {
         $this->em = $em;
         $this->pathRepository = $pathRepository;
@@ -38,43 +39,56 @@ class RoleManager
         }
     }
 
-    public function create($data) {
+    public function create($data)
+    {
         $agency = null; // Removed this->user->getAgency()
         /** @var Role $check */
         $check = $this->roleRepository->findOneBy(["nom" => $data->nom]);
         if (!$check) {
-            $role = new Role(); 
+            $role = new Role();
             $this->add($data->nom, $data->description, $role);
             foreach ($data->paths as $item) {
-                $path = $this->pathRepository->findOneByUuid($item->uuid);
-                $role->addPath($path);
+                if (isset($item->uuid) && Uuid::isValid($item->uuid)) {
+                    $path = $this->pathRepository->findOneByUuid($item->uuid);
+                    if ($path) {
+                        $role->addPath($path);
+                    }
+                }
             }
             $this->em->persist($role);
             $this->em->flush();
             return $role;
-        } else {
+        }
+        else {
             throw new ExceptionApi('Cette Permission existe déja',
-                ['msg' => 'Cette Permission existe déja'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            ['msg' => 'Cette Permission existe déja'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
     }
-    
-    public function update($data, $uuid) {
+
+    public function update($data, $uuid)
+    {
         /** @var Role $path*/
         $role = $this->roleRepository->findOneByUuid($uuid);
         foreach ($role->getPaths() as $key => $value) {
             $uuidO[] = !empty($data->paths[$key]->uuid) ? $data->paths[$key]->uuid : null;
             if ($uuidO !== null) {
                 if (!in_array($value->getUuid(), $uuidO)) {
-                    $role->removePath($value); 
+                    $role->removePath($value);
                 }
-            } else { $role->removePath($value); }
-        } 
-        
-        foreach ($data->paths as $path) {
-            /** @var Path $path*/
-            $path = $this->pathRepository->findOneByUuid($path->uuid); 
-            $role->addPath($path);
-        } 
+            }
+            else {
+                $role->removePath($value);
+            }
+        }
+
+        foreach ($data->paths as $pathData) {
+            if (isset($pathData->uuid) && Uuid::isValid($pathData->uuid)) {
+                $path = $this->pathRepository->findOneByUuid($pathData->uuid);
+                if ($path) {
+                    $role->addPath($path);
+                }
+            }
+        }
         $this->add($data->nom, $data->description, $role);
         $this->em->persist($role);
         $this->em->flush();
@@ -86,7 +100,7 @@ class RoleManager
         $role = $this->roleRepository->findOneByUuid($uuid);
         if (!$role->getUsers()->isEmpty()) {
             throw new ExceptionApi('Vous ne pouvez pas supprimer car ce role a déja éte attribué',
-                ['msg' => 'Vous ne pouvez pas supprimer car ce role a déja éte attribué'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            ['msg' => 'Vous ne pouvez pas supprimer car ce role a déja éte attribué'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         $this->em->remove($role);
         $this->em->flush();
@@ -98,7 +112,7 @@ class RoleManager
         $role
             ->setNom($nom)
             ->setDescription($description)
-        ;  
+            ;
         return $role;
     }
 
@@ -114,7 +128,7 @@ class RoleManager
             $tenant->addPath($path);
         }
         $this->em->persist($tenant);
-        
+
         // Role restreint de la gestion locative
         $tenantRestricted = new Role();
         $this->add('Gestion locatives restreint', 'Gestion locatives restreint', $tenantRestricted);
@@ -166,9 +180,9 @@ class RoleManager
         $paths = $pathsRow;
         foreach ($paths as $path) {
             $admin
-                ->addPath($path) 
-                ->setIsAdmin(true) 
-            ;
+                ->addPath($path)
+                ->setIsAdmin(true)
+                ;
         }
         $this->em->persist($admin);
 

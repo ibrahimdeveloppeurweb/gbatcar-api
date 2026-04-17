@@ -5,6 +5,7 @@ namespace App\Controller\Client;
 use App\Manager\Client\MaintenanceAlertManager;
 use App\Repository\Client\MaintenanceAlertRepository;
 use App\Entity\Client\Payment;
+use App\Manager\Admin\AuditLogManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,14 +17,17 @@ class MaintenanceAlertController extends AbstractController
 {
     private $maintenanceAlertRepository;
     private $maintenanceAlertManager;
+    private $auditLogManager;
 
     public function __construct(
         MaintenanceAlertRepository $maintenanceAlertRepository,
-        MaintenanceAlertManager $maintenanceAlertManager
+        MaintenanceAlertManager $maintenanceAlertManager,
+        AuditLogManager $auditLogManager
         )
     {
         $this->maintenanceAlertRepository = $maintenanceAlertRepository;
         $this->maintenanceAlertManager = $maintenanceAlertManager;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -51,6 +55,13 @@ class MaintenanceAlertController extends AbstractController
             }
 
             $maintenanceAlert = $this->maintenanceAlertManager->create($data, $request);
+
+            $this->auditLogManager->log(
+                'Sinistre',
+                'Création',
+                sprintf('Déclaration d\'un sinistre : %s', substr($maintenanceAlert->getDescription(), 0, 50))
+            );
+
             return $this->json($maintenanceAlert, 201, [], ['groups' => ["alert"]]);
         }
         catch (\Exception $e) {
@@ -102,6 +113,13 @@ class MaintenanceAlertController extends AbstractController
             }
 
             $item = $this->maintenanceAlertManager->update($uuid, $data, $request);
+
+            $this->auditLogManager->log(
+                'Sinistre',
+                'Modification',
+                sprintf('Mise à jour du sinistre : %s', substr($item->getDescription(), 0, 50))
+            );
+
             return $this->json($item, 200, [], ['groups' => ["alert"]]);
         }
         catch (\Exception $e) {
@@ -119,6 +137,12 @@ class MaintenanceAlertController extends AbstractController
             $item = $this->maintenanceAlertRepository->findOneByUuid($uuid);
             if ($item) {
                 $this->maintenanceAlertManager->delete($item);
+
+                $this->auditLogManager->log(
+                    'Sinistre',
+                    'Suppression',
+                    'Suppression d\'un sinistre'
+                );
             }
             return $this->json(['message' => 'Alerte supprimée'], 200);
         }
@@ -142,6 +166,13 @@ class MaintenanceAlertController extends AbstractController
 
             $status = $data->status ?? 'Ouvert';
             $item = $this->maintenanceAlertManager->changeStatus($uuid, $status);
+
+            $this->auditLogManager->log(
+                'Sinistre',
+                'Changement de statut',
+                sprintf('Le statut du sinistre est passé à %s', $status)
+            );
+
             return $this->json($item, 200, [], ['groups' => ["alert"]]);
         }
         catch (\Exception $e) {
@@ -164,6 +195,13 @@ class MaintenanceAlertController extends AbstractController
 
             $payer = $data->payer ?? 'SOCIETE';
             $item = $this->maintenanceAlertManager->invoice($uuid, $payer);
+
+            $this->auditLogManager->log(
+                'Sinistre',
+                'Facturation',
+                sprintf('Sinistre facturé à : %s', $payer)
+            );
+
             return $this->json($item, 200, [], ['groups' => ["alert"]]);
         }
         catch (\Exception $e) {

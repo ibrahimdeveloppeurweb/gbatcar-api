@@ -7,6 +7,7 @@ use App\Manager\Client\PaymentManager;
 use App\Repository\Client\PaymentDocumentRepository;
 use App\Repository\Client\PaymentRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Manager\Admin\AuditLogManager;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -22,18 +23,21 @@ class PaymentController extends AbstractController
     private $paymentManager;
     private $em;
     private $documentRepository;
+    private $auditLogManager;
 
     public function __construct(
         PaymentRepository $paymentRepository,
         PaymentManager $paymentManager,
         EntityManagerInterface $em,
-        PaymentDocumentRepository $documentRepository
+        PaymentDocumentRepository $documentRepository,
+        AuditLogManager $auditLogManager
         )
     {
         $this->paymentRepository = $paymentRepository;
         $this->paymentManager = $paymentManager;
         $this->em = $em;
         $this->documentRepository = $documentRepository;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -71,6 +75,13 @@ class PaymentController extends AbstractController
 
         try {
             $payment = $this->paymentManager->create($data, $request);
+
+            $this->auditLogManager->log(
+                'Paiement',
+                'Encaissement',
+                sprintf('Enregistrement d\'un paiement de %s FCFA (%s)', number_format($payment->getAmount(), 0, ',', ' '), $payment->getMethod())
+            );
+
             return $this->json($payment, 201, [], ['groups' => ['payment', 'payment:contract', 'contract:client']]);
         }
         catch (\Exception $e) {
@@ -104,6 +115,13 @@ class PaymentController extends AbstractController
 
         try {
             $payment = $this->paymentManager->update($uuid, $data, $request);
+
+            $this->auditLogManager->log(
+                'Paiement',
+                'Modification',
+                sprintf('Modification d\'un paiement de %s FCFA', number_format($payment->getAmount(), 0, ',', ' '))
+            );
+
             return $this->json($payment, 200, [], ['groups' => ['payment', 'payment:contract', 'contract:client']]);
         }
         catch (\Exception $e) {
@@ -123,7 +141,15 @@ class PaymentController extends AbstractController
         }
 
         try {
+            $amount = $payment->getAmount();
             $this->paymentManager->delete($payment);
+
+            $this->auditLogManager->log(
+                'Paiement',
+                'Suppression',
+                sprintf('Suppression d\'un paiement de %s FCFA', number_format($amount, 0, ',', ' '))
+            );
+
             return $this->json(['message' => 'Paiement supprimé success'], 200);
         }
         catch (\Exception $e) {
@@ -148,6 +174,13 @@ class PaymentController extends AbstractController
 
         try {
             $payment = $this->paymentManager->toggleStatus($payment, $status);
+
+            $this->auditLogManager->log(
+                'Paiement',
+                $status === 'ANNULÉ' ? 'Annulation' : 'Validation',
+                sprintf('Le statut du paiement est passé à %s', $status)
+            );
+
             return $this->json($payment, 200, [], ['groups' => ['payment', 'payment:contract', 'contract:client']]);
         }
         catch (\Exception $e) {

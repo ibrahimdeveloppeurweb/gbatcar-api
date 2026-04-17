@@ -8,7 +8,9 @@ use App\Repository\Client\MaintenanceRepository;
 use App\Repository\Client\VehicleRepository;
 use App\Entity\Admin\User;
 use App\Entity\Client\MaintenanceType;
+use App\Entity\Client\MaintenanceProvider;
 use App\Repository\Client\MaintenanceTypeRepository;
+use App\Repository\Client\MaintenanceProviderRepository;
 
 class MaintenanceManager
 {
@@ -16,18 +18,21 @@ class MaintenanceManager
     private $maintenanceRepository;
     private $vehicleRepository;
     private $maintenanceTypeRepository;
+    private $maintenanceProviderRepository;
 
     public function __construct(
         EntityManagerInterface $em,
         MaintenanceRepository $maintenanceRepository,
         VehicleRepository $vehicleRepository,
-        MaintenanceTypeRepository $maintenanceTypeRepository
+        MaintenanceTypeRepository $maintenanceTypeRepository,
+        MaintenanceProviderRepository $maintenanceProviderRepository
         )
     {
         $this->em = $em;
         $this->maintenanceRepository = $maintenanceRepository;
         $this->vehicleRepository = $vehicleRepository;
         $this->maintenanceTypeRepository = $maintenanceTypeRepository;
+        $this->maintenanceProviderRepository = $maintenanceProviderRepository;
     }
 
     public function create(object $data, ?User $user = null): Maintenance
@@ -126,6 +131,21 @@ class MaintenanceManager
             $maintenance->setProvider($data->prestataire);
         if (isset($data->provider))
             $maintenance->setProvider($data->provider);
+
+        // Sync with MaintenanceProvider entity
+        $providerName = $data->prestataire ?? $data->provider ?? null;
+        if ($providerName) {
+            $providerEntity = $this->maintenanceProviderRepository->findOneBy(['name' => $providerName]);
+            if (!$providerEntity) {
+                $providerEntity = new MaintenanceProvider();
+                $providerEntity->setName($providerName);
+                if ($user) {
+                    $providerEntity->setCreateBy($user);
+                }
+                $this->em->persist($providerEntity);
+                $this->em->flush();
+            }
+        }
         if (isset($data->cost))
             $maintenance->setCost((float)$data->cost);
         if (isset($data->statut))

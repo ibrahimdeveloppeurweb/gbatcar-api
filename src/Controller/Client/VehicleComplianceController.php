@@ -6,6 +6,7 @@ use App\Entity\Client\VehicleCompliance;
 use App\Manager\Client\VehicleComplianceManager;
 use App\Repository\Client\VehicleComplianceRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Manager\Admin\AuditLogManager;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,16 +21,19 @@ class VehicleComplianceController extends AbstractController
     private $manager;
     private $repository;
     private $serializer;
+    private $auditLogManager;
 
     public function __construct(
         VehicleComplianceManager $manager,
         VehicleComplianceRepository $repository,
-        SerializerInterface $serializer
+        SerializerInterface $serializer,
+        AuditLogManager $auditLogManager
         )
     {
         $this->manager = $manager;
         $this->repository = $repository;
         $this->serializer = $serializer;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -55,6 +59,13 @@ class VehicleComplianceController extends AbstractController
             $data = new \stdClass();
         try {
             $compliance = $this->manager->create($data, $request);
+
+            $this->auditLogManager->log(
+                'Véhicule',
+                'Création',
+                sprintf('Ajout d\'une conformité : %s pour le véhicule %s', $compliance->getType(), $compliance->getVehicle()->getImmatriculation())
+            );
+
             return $this->json($compliance, 201, [], ['groups' => ['compliance']]);
         }
         catch (\Exception $e) {
@@ -108,6 +119,13 @@ class VehicleComplianceController extends AbstractController
             $data = new \stdClass();
         try {
             $compliance = $this->manager->update($uuid, $data, $request);
+
+            $this->auditLogManager->log(
+                'Véhicule',
+                'Modification',
+                sprintf('Modification de la conformité : %s', $compliance->getType())
+            );
+
             return $this->json($compliance, 200, [], ['groups' => ['compliance']]);
         }
         catch (\Exception $e) {
@@ -129,7 +147,15 @@ class VehicleComplianceController extends AbstractController
             return $this->json(['message' => 'Conformité introuvable.'], 404);
         }
         try {
+            $type = $compliance->getType();
             $this->manager->delete($compliance);
+
+            $this->auditLogManager->log(
+                'Véhicule',
+                'Suppression',
+                sprintf('Suppression de la conformité : %s', $type)
+            );
+
             return $this->json(['message' => 'Conformité supprimée avec succès.'], 200);
         }
         catch (\Exception $e) {
