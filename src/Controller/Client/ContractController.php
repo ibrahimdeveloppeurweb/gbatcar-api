@@ -5,6 +5,7 @@ namespace App\Controller\Client;
 use App\Entity\Client\ContractDocument;
 use App\Manager\Client\ContractManager;
 use App\Repository\Client\ContractRepository;
+use App\Manager\Admin\AuditLogManager;
 use App\Repository\Client\ContractDocumentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -25,13 +26,15 @@ class ContractController extends AbstractController
     private $em;
     private $documentRepository;
     private $promiseRepository;
+    private $auditLogManager;
 
     public function __construct(
         ContractRepository $contractRepository,
         ContractManager $contractManager,
         EntityManagerInterface $em,
         ContractDocumentRepository $documentRepository,
-        PromiseToPayRepository $promiseRepository
+        PromiseToPayRepository $promiseRepository,
+        AuditLogManager $auditLogManager
         )
     {
         $this->contractRepository = $contractRepository;
@@ -39,6 +42,7 @@ class ContractController extends AbstractController
         $this->em = $em;
         $this->documentRepository = $documentRepository;
         $this->promiseRepository = $promiseRepository;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -60,6 +64,13 @@ class ContractController extends AbstractController
     {
         $data = json_decode($request->getContent());
         $item = $this->contractManager->create($data);
+
+        $this->auditLogManager->log(
+            'Contrat',
+            'Création',
+            sprintf('Nouveau contrat %s pour le client %s %s', $item->getReference(), $item->getClient()->getLastName(), $item->getClient()->getFirstName())
+        );
+
         return $this->json($item, 201, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
     }
 
@@ -141,6 +152,13 @@ class ContractController extends AbstractController
 
         try {
             $this->contractManager->validate($item);
+
+            $this->auditLogManager->log(
+                'Contrat',
+                'Validation',
+                sprintf('Validation du contrat %s', $item->getReference())
+            );
+
             return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
         }
         catch (\Exception $e) {
@@ -161,6 +179,13 @@ class ContractController extends AbstractController
 
         try {
             $this->contractManager->terminate($item);
+
+            $this->auditLogManager->log(
+                'Contrat',
+                'Clôture',
+                sprintf('Clôture du contrat %s', $item->getReference())
+            );
+
             return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
         }
         catch (\Exception $e) {
@@ -181,6 +206,13 @@ class ContractController extends AbstractController
 
         try {
             $this->contractManager->rupture($item);
+
+            $this->auditLogManager->log(
+                'Contrat',
+                'Annulation',
+                sprintf('Rupture du contrat %s', $item->getReference())
+            );
+
             return $this->json($item, 200, [], ['groups' => ["contract", "contract:client", "contract:payments", "contract:promises"]]);
         }
         catch (\Exception $e) {

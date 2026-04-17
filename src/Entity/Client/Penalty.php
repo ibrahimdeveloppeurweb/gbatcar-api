@@ -90,6 +90,12 @@ class Penalty
      */
     private $paidAmount;
 
+    /**
+     * @ORM\Column(type="datetime_immutable", nullable=true)
+     * @Groups({"penalty", "compliance", "contract"})
+     */
+    private $paidAt;
+
     // --- RELATIONS ---
 
     /**
@@ -310,6 +316,18 @@ class Penalty
     public function setPaidAmount(?float $paidAmount): self
     {
         $this->paidAmount = $paidAmount;
+
+        return $this;
+    }
+
+    public function getPaidAt(): ?\DateTimeImmutable
+    {
+        return $this->paidAt;
+    }
+
+    public function setPaidAt(?\DateTimeImmutable $paidAt): self
+    {
+        $this->paidAt = $paidAt;
 
         return $this;
     }

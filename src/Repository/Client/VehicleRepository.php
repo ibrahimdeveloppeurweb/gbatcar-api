@@ -44,6 +44,7 @@ class VehicleRepository extends ServiceEntityRepository
         $yearMax = $cleanValue($filters['yearMax'] ?? null);
         $mileageMin = $cleanValue($filters['mileageMin'] ?? null);
         $mileageMax = $cleanValue($filters['mileageMax'] ?? null);
+        $currentContractUuid = $cleanValue($filters['current_contract_uuid'] ?? null);
         $limit = $filters['limit'] ?? 10;
 
         $activeStatusesList = "('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')";
@@ -60,9 +61,23 @@ class VehicleRepository extends ServiceEntityRepository
                 ->setParameter('search', '%' . $search . '%');
         }
 
+        $assignedVehicleId = null;
+        if ($currentContractUuid) {
+            $cTmp = $this->getEntityManager()->getRepository(Contract::class)->findOneBy(['uuid' => $currentContractUuid]);
+            if ($cTmp && $cTmp->getVehicle()) {
+                $assignedVehicleId = $cTmp->getVehicle()->getId();
+            }
+        }
+
         if ($status && is_string($status)) {
-            $query->andWhere('v.statut = :status')
-                ->setParameter('status', $status);
+            if ($assignedVehicleId) {
+                $query->andWhere('(v.statut = :status OR v.id = :assignedVehicleId)')
+                    ->setParameter('assignedVehicleId', $assignedVehicleId);
+            }
+            else {
+                $query->andWhere('v.statut = :status');
+            }
+            $query->setParameter('status', $status);
         }
 
         if ($assignedClient && is_string($assignedClient)) {
@@ -93,7 +108,17 @@ class VehicleRepository extends ServiceEntityRepository
                     ->andWhere(str_replace('ps_sub', 'ps_sub2', $lateCountSql) . " <= 5");
             }
             elseif ($paymentStatus === 'Critique') {
-                $query->andWhere($lateCountSql . " >= 6");
+                $query->leftJoin('v.complianceDocuments', 'vcd_crit', 'WITH', 'vcd_crit.endDate < CURRENT_DATE() AND vcd_crit.deletedAt IS NULL');
+                $query->leftJoin('v.maintenances', 'vm_crit', 'WITH', 'vm_crit.status IN (:m_crit_status) AND DATE_DIFF(CURRENT_DATE(), vm_crit.startDate) > 3 AND vm_crit.deletedAt IS NULL');
+
+                $query->andWhere(
+                    $query->expr()->orX(
+                    $lateCountSql . " >= 6",
+                    "v.kilometrage >= v.prochainEntretien",
+                    "vcd_crit.id IS NOT NULL",
+                    "vm_crit.id IS NOT NULL"
+                )
+                )->setParameter('m_crit_status', ['EN COURS', 'En cours', 'EN_PROGRESS']);
             }
             elseif ($paymentStatus === 'Soldé') {
                 $query->andWhere('ctr.status IN (:term) OR ctrf.status IN (:term) OR v.statut = :vendu')
@@ -189,7 +214,17 @@ class VehicleRepository extends ServiceEntityRepository
                         ->andWhere(str_replace('ps_sub', 'ps_sub2', $lateCountSql) . " <= 5");
                 }
                 elseif ($pStatus === 'Critique') {
-                    $query->andWhere($lateCountSql . " >= 6");
+                    $query->leftJoin('v.complianceDocuments', 'vcd_tab_crit', 'WITH', 'vcd_tab_crit.endDate < CURRENT_DATE() AND vcd_tab_crit.deletedAt IS NULL');
+                    $query->leftJoin('v.maintenances', 'vm_tab_crit', 'WITH', 'vm_tab_crit.status IN (:m_tab_crit_status) AND DATE_DIFF(CURRENT_DATE(), vm_tab_crit.startDate) > 3 AND vm_tab_crit.deletedAt IS NULL');
+
+                    $query->andWhere(
+                        $query->expr()->orX(
+                        $lateCountSql . " >= 6",
+                        "v.kilometrage >= v.prochainEntretien",
+                        "vcd_tab_crit.id IS NOT NULL",
+                        "vm_tab_crit.id IS NOT NULL"
+                    )
+                    )->setParameter('m_tab_crit_status', ['EN COURS', 'En cours', 'EN_PROGRESS']);
                 }
             }
         }
@@ -252,35 +287,105 @@ class VehicleRepository extends ServiceEntityRepository
         ";
         $kpis = $conn->executeQuery($sqlKpi)->fetchAssociative();
 
-        // 2. Distribution par Statut (Refined)
-        $sqlDist = "
-            SELECT 
-                SUM(CASE WHEN is_renting = 1 THEN 1 ELSE 0 END) as renting_count,
-                SUM(CASE WHEN has_maint = 1 THEN 1 ELSE 0 END) as maintenance_count,
-                SUM(CASE WHEN is_renting = 0 AND has_maint = 0 AND (statut = 'Disponible' OR statut = 'Available') THEN 1 ELSE 0 END) as available_count
-            FROM (
-                SELECT v.id, v.statut,
-                    (SELECT COUNT(*) FROM contract c 
-                     LEFT JOIN contract_vehicle_demand_vehicle ad ON v.id = ad.vehicle_id
-                     LEFT JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
-                     WHERE (c.vehicle_id = v.id OR c.id = vd.contract_id)
-                     AND c.status IN ('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé')
-                    ) > 0 as is_renting,
-                    (SELECT COUNT(*) FROM maintenance m 
-                     WHERE m.vehicle_id = v.id 
-                     AND m.status IN ('En cours', 'In Progress', 'EN_COURS')
-                     AND m.deleted_at IS NULL
-                    ) > 0 as has_maint
-                FROM vehicle v
-                WHERE v.deleted_at IS NULL
-            ) as v_stats
+        // 2. Distribution par Statut - Comptage indépendant (un véhicule peut être dans plusieurs catégories)
+        // "En Location-Vente" = a un contrat ACTIF valide (pas terminé, suspendu, annulé)
+        // "En Maintenance" = a au moins une maintenance dont le statut est 'En cours'
+        // "Disponible" = ni contrat actif, ni maintenance en cours
+
+        $activeContractStatuses = ['ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'VALIDATED', 'Actif', 'En cours', 'Validé', 'NEW', 'PENDING', 'BROUILLON', 'EN ATTENTE', 'NOUVEAU', 'Demande'];
+        $activeContractPlaceholders = implode(',', array_fill(0, count($activeContractStatuses), '?'));
+
+        $soldContractStatuses = ['TERMINÉ', 'SOLDÉ', 'Solder', 'Vendu'];
+        $soldContractPlaceholders = implode(',', array_fill(0, count($soldContractStatuses), '?'));
+
+        // PRIORITIZED EXCLUSIVE CATEGORIZATION
+
+        // 1. SOLD (Highest priority)
+        $sqlSold = "
+            SELECT COUNT(DISTINCT v.id)
+            FROM vehicle v
+            WHERE v.deleted_at IS NULL
+            AND (
+                v.statut = 'Vendu'
+                OR EXISTS (
+                    SELECT 1 FROM contract c 
+                    WHERE c.vehicle_id = v.id 
+                    AND c.deleted_at IS NULL
+                    AND c.status IN ($soldContractPlaceholders)
+                )
+            )
         ";
-        $distRaw = $conn->executeQuery($sqlDist)->fetchAssociative();
+        $soldCount = (int)$conn->fetchOne($sqlSold, array_merge($soldContractStatuses));
+
+        // 2. RENTING (If not Sold)
+        $sqlRenting = "
+            SELECT COUNT(DISTINCT v.id)
+            FROM vehicle v
+            WHERE v.deleted_at IS NULL
+            AND (
+                -- Contrat direct sur le véhicule
+                EXISTS (
+                    SELECT 1 FROM contract c 
+                    WHERE c.vehicle_id = v.id 
+                    AND c.deleted_at IS NULL
+                    AND c.status IN ($activeContractPlaceholders)
+                )
+                OR
+                -- Contrat de flotte contenant le véhicule
+                EXISTS (
+                    SELECT 1 FROM contract_vehicle_demand_vehicle ad
+                    INNER JOIN contract_vehicle_demand vd ON ad.contract_vehicle_demand_id = vd.id
+                    INNER JOIN contract c ON vd.contract_id = c.id
+                    WHERE ad.vehicle_id = v.id
+                    AND c.deleted_at IS NULL
+                    AND c.status IN ($activeContractPlaceholders)
+                )
+                OR v.statut = 'En Location-Vente'
+            )
+            -- Exclusion des véhicules déjà comptés comme \"Vendus\"
+            AND v.statut != 'Vendu'
+            AND NOT EXISTS (
+                SELECT 1 FROM contract c2 
+                WHERE c2.vehicle_id = v.id 
+                AND c2.deleted_at IS NULL 
+                AND c2.status IN ($soldContractPlaceholders)
+            )
+        ";
+        $rentingCount = (int)$conn->fetchOne($sqlRenting, array_merge($activeContractStatuses, $activeContractStatuses, $soldContractStatuses));
+
+        // 3. MAINTENANCE (If not Sold and not Rented)
+        $sqlMaintenance = "
+            SELECT COUNT(DISTINCT v.id)
+            FROM vehicle v
+            INNER JOIN maintenance m ON m.vehicle_id = v.id
+            WHERE v.deleted_at IS NULL
+            AND m.deleted_at IS NULL
+            AND m.status IN ('En cours', 'In Progress', 'EN_COURS')
+            -- Exclusions
+            AND v.statut NOT IN ('Vendu', 'En Location-Vente')
+            AND NOT EXISTS (SELECT 1 FROM contract c WHERE c.vehicle_id = v.id AND c.deleted_at IS NULL AND c.status IN ($soldContractPlaceholders))
+            AND NOT EXISTS (SELECT 1 FROM contract c WHERE c.vehicle_id = v.id AND c.deleted_at IS NULL AND c.status IN ($activeContractPlaceholders))
+        ";
+        $maintenanceCount = (int)$conn->fetchOne($sqlMaintenance, array_merge($soldContractStatuses, $activeContractStatuses));
+
+        // 4. AVAILABLE (Everything else)
+        $sqlExclusiveAvailable = "
+            SELECT COUNT(DISTINCT v.id)
+            FROM vehicle v
+            WHERE v.deleted_at IS NULL
+            -- Exclusions
+            AND v.statut NOT IN ('Vendu', 'En Location-Vente')
+            AND NOT EXISTS (SELECT 1 FROM contract c WHERE c.vehicle_id = v.id AND c.deleted_at IS NULL AND c.status IN ($soldContractPlaceholders))
+            AND NOT EXISTS (SELECT 1 FROM contract c WHERE c.vehicle_id = v.id AND c.deleted_at IS NULL AND c.status IN ($activeContractPlaceholders))
+            AND NOT EXISTS (SELECT 1 FROM maintenance m WHERE m.vehicle_id = v.id AND m.deleted_at IS NULL AND m.status IN ('En cours', 'In Progress', 'EN_COURS'))
+        ";
+        $availableCount = (int)$conn->fetchOne($sqlExclusiveAvailable, array_merge($soldContractStatuses, $activeContractStatuses));
 
         $distribution = [
-            ['statut' => 'En Location-Vente', 'count' => (int)$distRaw['renting_count']],
-            ['statut' => 'Disponible', 'count' => (int)$distRaw['available_count']],
-            ['statut' => 'En Maintenance', 'count' => (int)$distRaw['maintenance_count']]
+            ['statut' => 'En Location-Vente', 'count' => $rentingCount],
+            ['statut' => 'Disponible', 'count' => $availableCount],
+            ['statut' => 'En Maintenance', 'count' => $maintenanceCount],
+            ['statut' => 'Vendu', 'count' => $soldCount]
         ];
 
         // 3. Trends (Real Maintenance Costs)

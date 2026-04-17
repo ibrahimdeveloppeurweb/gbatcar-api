@@ -1174,4 +1174,52 @@ class Vehicle
         }
         return trim(($this->marque ?? '') . ' ' . ($this->modele ?? '')) . ' (' . $this->immatriculation . ')';
     }
+
+    /**
+     * @Groups({"vehicle"})
+     */
+    public function getRecoveryReason(): ?string
+    {
+        // 1. Defaut de paiement
+        $activeContract = $this->getActiveContract();
+        if ($activeContract) {
+            $lateCount = 0;
+            foreach ($activeContract->getPaymentSchedules() as $ps) {
+                if ($ps->getDeletedAt() === null && in_array($ps->getStatus(), ['En retard', 'Partiel']) && $ps->getExpectedDate() < new \DateTime()) {
+                    $lateCount++;
+                }
+            }
+            if ($lateCount >= 6) {
+                return "Impayé critique ($lateCount échéances)";
+            }
+        }
+
+        // 2. Entretien dépassé
+        if ($this->prochainEntretien > 0 && $this->kilometrage >= $this->prochainEntretien) {
+            return "Maintenance : Vidange dépassée";
+        }
+
+        // 3. Compliance (Documents expirés)
+        if ($this->complianceDocuments) {
+            foreach ($this->complianceDocuments as $doc) {
+                if ($doc->getDeletedAt() === null && $doc->getEndDate() && $doc->getEndDate()->format('Y-m-d') < (new \DateTime())->format('Y-m-d')) {
+                    return "Conformité : " . $doc->getType() . " expiré";
+                }
+            }
+        }
+
+        // 4. Maintenance immobilisée
+        if ($this->maintenances) {
+            foreach ($this->maintenances as $m) {
+                if ($m->getDeletedAt() === null && in_array(strtoupper((string)$m->getStatus()), ['EN COURS', 'EN_COURS', 'IN PROGRESS', 'EN_PROGRESS']) && $m->getStartDate()) {
+                    $diff = $m->getStartDate()->diff(new \DateTime());
+                    if ($diff->days > 3) {
+                        return "Maintenance prolongée (" . $diff->days . "j)";
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
 }

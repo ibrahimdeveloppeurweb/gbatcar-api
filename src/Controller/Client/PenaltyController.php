@@ -5,6 +5,7 @@ namespace App\Controller\Client;
 use App\Manager\Client\PenaltyManager;
 use App\Repository\Client\PenaltyRepository;
 use Symfony\Component\HttpFoundation\Request;
+use App\Manager\Admin\AuditLogManager;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
@@ -15,14 +16,17 @@ class PenaltyController extends AbstractController
 {
     private $penaltyRepository;
     private $penaltyManager;
+    private $auditLogManager;
 
     public function __construct(
         PenaltyRepository $penaltyRepository,
-        PenaltyManager $penaltyManager
+        PenaltyManager $penaltyManager,
+        AuditLogManager $auditLogManager
         )
     {
         $this->penaltyRepository = $penaltyRepository;
         $this->penaltyManager = $penaltyManager;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -52,6 +56,13 @@ class PenaltyController extends AbstractController
 
         try {
             $penalty = $this->penaltyManager->create($data, $request);
+
+            $this->auditLogManager->log(
+                'Pénalité',
+                'Création',
+                sprintf('Création d\'une pénalité de %s FCFA pour le motif : %s', number_format($penalty->getAmount(), 0, ',', ' '), substr($penalty->getReason(), 0, 50))
+            );
+
             return $this->json($penalty, 201, [], ['groups' => ['penalty']]);
         }
         catch (\Exception $e) {
@@ -97,6 +108,13 @@ class PenaltyController extends AbstractController
 
         try {
             $penalty = $this->penaltyManager->update($uuid, $data, $request);
+
+            $this->auditLogManager->log(
+                'Pénalité',
+                'Modification',
+                sprintf('Mise à jour de la pénalité de %s FCFA', number_format($penalty->getAmount(), 0, ',', ' '))
+            );
+
             return $this->json($penalty, 200, [], ['groups' => ['penalty']]);
         }
         catch (\Exception $e) {
@@ -116,7 +134,15 @@ class PenaltyController extends AbstractController
         }
 
         try {
+            $amount = $penalty->getAmount();
             $this->penaltyManager->delete($penalty);
+
+            $this->auditLogManager->log(
+                'Pénalité',
+                'Suppression',
+                sprintf('Suppression de la pénalité de %s FCFA', number_format($amount, 0, ',', ' '))
+            );
+
             return $this->json(['message' => 'Pénalité supprimée avec succès.'], 200);
         }
         catch (\Exception $e) {

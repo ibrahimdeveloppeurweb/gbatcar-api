@@ -4,6 +4,7 @@ namespace App\Controller\Client;
 
 use App\Manager\Client\VehicleManager;
 use App\Repository\Client\VehicleRepository;
+use App\Manager\Admin\AuditLogManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
@@ -17,16 +18,19 @@ class VehicleController extends AbstractController
     private $vehicleRepository;
     private $vehicleManager;
     private $em;
+    private $auditLogManager;
 
     public function __construct(
         VehicleRepository $vehicleRepository,
         VehicleManager $vehicleManager,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        AuditLogManager $auditLogManager
         )
     {
         $this->vehicleRepository = $vehicleRepository;
         $this->vehicleManager = $vehicleManager;
         $this->em = $em;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -52,6 +56,13 @@ class VehicleController extends AbstractController
         if (!$data) $data = new \stdClass();
         try {
             $vehicle = $this->vehicleManager->create($data, $request);
+            
+            $this->auditLogManager->log(
+                'Véhicule',
+                'Création',
+                sprintf('Nouveau véhicule ajouté : %s %s (%s)', $vehicle->getMarque(), $vehicle->getModele(), $vehicle->getImmatriculation())
+            );
+
             return $this->json($vehicle, 201, [], ['groups' => ['vehicle']]);
         } catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la création du véhicule.', 'details' => $e->getMessage()], 500);
@@ -96,6 +107,13 @@ class VehicleController extends AbstractController
         if (!$data) $data = new \stdClass();
         try {
             $vehicle = $this->vehicleManager->update($uuid, $data, $request);
+            
+            $this->auditLogManager->log(
+                'Véhicule',
+                'Modification',
+                sprintf('Mise à jour du véhicule : %s %s', $vehicle->getMarque(), $vehicle->getModele())
+            );
+
             return $this->json($vehicle, 200, [], ['groups' => ['vehicle']]);
         } catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la modification du véhicule.', 'details' => $e->getMessage()], 500);
@@ -116,7 +134,15 @@ class VehicleController extends AbstractController
             return $this->json(['message' => 'Véhicule introuvable.'], 404);
         }
         try {
+            $name = $vehicle->getMarque() . ' ' . $vehicle->getModele();
             $this->vehicleManager->delete($vehicle);
+            
+            $this->auditLogManager->log(
+                'Véhicule',
+                'Suppression',
+                sprintf('Suppression du véhicule : %s', $name)
+            );
+
             return $this->json(['message' => 'Véhicule supprimé avec succès.'], 200);
         } catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la suppression.', 'details' => $e->getMessage()], 500);
@@ -142,6 +168,13 @@ class VehicleController extends AbstractController
 
         try {
             $this->vehicleManager->reserve($vehicle, $reservedBy);
+            
+            $this->auditLogManager->log(
+                'Véhicule',
+                'Réservation',
+                sprintf('Réservation du véhicule : %s pour %s', $vehicle->getImmatriculation(), $reservedBy)
+            );
+
             return $this->json($vehicle, 200, [], ['groups' => ['vehicle']]);
         } catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la réservation.', 'details' => $e->getMessage()], 500);
@@ -175,6 +208,12 @@ class VehicleController extends AbstractController
         }
         
         $this->em->flush();
+
+        $this->auditLogManager->log(
+            'Véhicule',
+            'Changement de statut',
+            sprintf('Le statut du véhicule %s est passé à %s', $vehicle->getImmatriculation(), $newStatus)
+        );
 
         return $this->json($vehicle, 200, [], ['groups' => ['vehicle']]);
     }

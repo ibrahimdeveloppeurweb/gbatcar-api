@@ -6,6 +6,7 @@ use App\Entity\Client\Contract;
 use App\Entity\Client\PaymentSchedule;
 use App\Manager\Client\PaymentScheduleManager;
 use App\Manager\Client\PenaltyManager;
+use App\Manager\Admin\AuditLogManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,12 +22,14 @@ class PaymentScheduleController extends AbstractController
     private $em;
     private $scheduleManager;
     private $serializer;
+    private $auditLogManager;
 
-    public function __construct(EntityManagerInterface $em, PaymentScheduleManager $scheduleManager, SerializerInterface $serializer)
+    public function __construct(EntityManagerInterface $em, PaymentScheduleManager $scheduleManager, SerializerInterface $serializer, AuditLogManager $auditLogManager)
     {
         $this->em = $em;
         $this->scheduleManager = $scheduleManager;
         $this->serializer = $serializer;
+        $this->auditLogManager = $auditLogManager;
     }
 
     /**
@@ -78,6 +81,12 @@ class PaymentScheduleController extends AbstractController
 
             $schedules = $this->scheduleManager->generateSchedule($contract, (float)$totalAmount, (int)$installments, $startDate, (int)$ruleDay, (bool)$includeSundays);
 
+            $this->auditLogManager->log(
+                'Contrat',
+                'Création',
+                sprintf('Génération de l\'échéancier (%d échéances) pour le contrat', count($schedules))
+            );
+
             $json = $this->serializer->serialize($schedules, 'json', ['groups' => ['payment_schedule']]);
             return new JsonResponse($json, 201, [], true);
         }
@@ -107,6 +116,13 @@ class PaymentScheduleController extends AbstractController
 
         try {
             $count = $this->scheduleManager->shiftScheduleDates($contract, $days);
+
+            $this->auditLogManager->log(
+                'Contrat',
+                'Modification',
+                sprintf('Prolongation du contrat de %d jours (%d échéances décalées)', $days, $count)
+            );
+
             return $this->json([
                 'message' => sprintf('Échéancier prolongé de %d jours. %d échéances décalées.', $days, $count),
                 'shiftedCount' => $count
@@ -154,6 +170,12 @@ class PaymentScheduleController extends AbstractController
         $this->em->persist($contract);
         $this->em->flush();
 
+        $this->auditLogManager->log(
+            'Contrat',
+            $suspend ? 'Suppression' : 'Validation', // Simulation of Suspendu / Active with colors
+            sprintf('Le contrat est passé au statut : %s', $contract->getStatus())
+        );
+
         return $this->json(['message' => $message, 'status' => $contract->getStatus()]);
     }
 
@@ -198,6 +220,13 @@ class PaymentScheduleController extends AbstractController
         }
 
         $count = $this->scheduleManager->markOverdueSchedules($contract);
+
+        $this->auditLogManager->log(
+            'Contrat',
+            'Modification',
+            sprintf('Marquage des retards : %d échéance(s) en retard détectée(s)', $count)
+        );
+
         return $this->json([
             'message' => sprintf('%d échéance(s) marquée(s) "En retard".', $count),
             'updated' => $count,
@@ -224,6 +253,12 @@ class PaymentScheduleController extends AbstractController
         }
 
         $penalties = $penaltyManager->calculatePenaltiesForContract($contract);
+
+        $this->auditLogManager->log(
+            'Pénalité',
+            'Création',
+            sprintf('Calcul des pénalités : %d pénalité(s) générée(s) pour le contrat', count($penalties))
+        );
 
         return $this->json([
             'message' => sprintf('%d pénalité(s) calculée(s)/mise(s) à jour.', count($penalties)),
