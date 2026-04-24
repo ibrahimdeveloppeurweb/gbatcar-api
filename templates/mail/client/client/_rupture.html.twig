@@ -1,0 +1,84 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+ <table class="es-content" cellspacing="0" cellpadding="0" align="center">
+        <tbody>
+            <tr>
+                <td class="esd-stripe" align="center">
+                    <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                        <tbody>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+                                                                {{ include('shared/mail/_logo.html.twig') }}
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text" align="center">
+                                                                    <h2 style="font-size: 20px; color: #d32f2f;">Notification de Rupture de Contrat<br></h2>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p15t es-p10b" align="center">
+                                                                    <p style="font-size: 16px; color: #555555;">{{ client.civilite ~ ' ' ~ client.lastName }}</p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p20t" align="center">
+                                                                    <p style="font-size: 16px; color: #555555;">
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;">Nous vous informons par la présente de la rupture de votre contrat de location-vente GBATCAR.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold; color: #d32f2f;">Cette décision entraîne l'obligation de restituer le véhicule à notre agence immédiatement.</p>
+                                                                        
+                                                                        <p style="margin: 20px 0 10px; padding: 3px; text-align: left; font-weight: bold">Détails du contrat :</p>
+                                                                        <div style="background-color: #fff5f5; padding: 15px; border-radius: 8px; border-left: 4px solid #d32f2f;">
+                                                                            <p style="margin: 5px 0;"><span style="font-weight: bold;">Référence Contrat : </span> {{ contract.reference }} </p>
+                                                                            <p style="margin: 5px 0;"><span style="font-weight: bold;">Véhicule(s) : </span> {{ contract.vehicleSummary }} </p>
+                                                                            <p style="margin: 5px 0;"><span style="font-weight: bold;">Motif : </span> Rupture de contrat </p>
+                                                                        </div>
+
+                                                                        <p style="margin: 20px 0 10px; padding: 3px; text-align: left;">Veuillez vous présenter à notre agence sous 24h pour la restitution du véhicule et la régularisation des éventuels arriérés de paiement.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;">Passé ce délai, nous serons contraints d'engager des procédures de recouvrement forcé conformément aux conditions générales de votre contrat.</p>
+                                                                        
+                                                                        <p style="margin: 20px 0 0; padding: 3px; text-align: left; font-weight: bold">Action requise immédiate.</p>
+                                                                        <p style="margin: 5px 0; padding: 3px; text-align: left;">L'équipe GBATCAR</p>
+                                                                    </p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block content %}{% endblock %}

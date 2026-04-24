@@ -126,7 +126,7 @@ class GeneralSetting
     /**
      * @Groups({"setting"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return "Paramètres Généraux";
     }
@@ -134,7 +134,7 @@ class GeneralSetting
     /**
      * @Groups({"setting"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return "Configuration globale des frais de dossier, pénalités et contrats";
     }

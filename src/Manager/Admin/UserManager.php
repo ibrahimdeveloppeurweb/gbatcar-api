@@ -14,6 +14,9 @@ use App\Manager\Security\SecurityManager;
 use App\Repository\Extra\FileRepository;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Encoder\UserPasswordEncoderInterface;
+use App\Utils\Constants;
+use App\Utils\FonctionUtil;
+use App\Entity\Client\Client;
 
 class UserManager
 {
@@ -270,5 +273,53 @@ class UserManager
         }
 
 
+    }
+
+    /**
+     * Création automatique d'un compte utilisateur pour un client lors de la validation du contrat
+     * 
+     * @param Client $client
+     * @return array|null
+     */
+    public function createClientAccount(Client $client): ?array
+    {
+        if (!$client->getEmail()) {
+            return null;
+        }
+
+        $username = $client->getEmail();
+        $password = FonctionUtil::password(5);
+
+        /** @var User $user */
+        $user = $this->userRepository->findOneBy(['username' => $username]);
+
+        if (!$user) {
+            $user = new User();
+            $user->setUsername($username)
+                ->setEmail($username)
+                ->setType(Constants::USER_TYPE['CLIENT'])
+                ->setIsEnabled(true)
+                ->setIsFirst(false);
+
+        // Assign ROLE_CLIENT
+        // $role = $this->roleRepository->findOneBy(['libelle' => Constants::USER_ROLES['CLIENT']]);
+        // if ($role) {
+        //     $user->addDroit($role);
+        // }
+        }
+
+        $user->setPassword($this->passwordEncoder->encodePassword($user, $password));
+        $user->setNom($client->getLastName())
+            ->setPrenom($client->getFirstName())
+            ->setTelephone($client->getPhone())
+            ->setCivilite($client->getCivilite());
+
+        $this->em->persist($user);
+        $this->em->flush();
+
+        return [
+            'username' => $username,
+            'password' => $password
+        ];
     }
 }

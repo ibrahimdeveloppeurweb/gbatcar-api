@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Document GBATCAR{% endblock %}</title>
+    <style>
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.5; margin: 0; padding: 40px; }
+        .header { text-align: center; border-bottom: 2px solid #ed1c24; padding-bottom: 20px; margin-bottom: 30px; }
+        .logo { font-size: 32px; font-weight: bold; color: #ed1c24; }
+        .motto { font-size: 14px; color: #666; font-style: italic; }
+        .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+        .title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; color: #ed1c24; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f9f9f9; width: 30%; }
+        .section-title { background-color: #eee; font-weight: bold; padding: 5px 10px; margin-top: 20px; margin-bottom: 10px; border-left: 4px solid #ed1c24; }
+        .amount { font-weight: bold; color: #ed1c24; }
+        .signature-box { margin-top: 50px; display: flex; justify-content: space-between; }
+        .signature-item { width: 45%; border: 1px solid #ddd; padding: 10px; min-height: 150px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">GBATCAR</div>
+        <div class="motto">Votre partenaire de confiance en Location-Vente de véhicules</div>
+    </div>
+
+    {% block body %}{% endblock %}
+
+    <div class="footer">
+        GBATCAR - SARL au capital de ... - Siège Social : ... - RCCM : ... - NIF : ... <br>
+        Tél : +225 ... - Email : contact@gbatcar.com - Web : www.gbatcar.com
+    </div>
+</body>
+</html>

@@ -64,15 +64,9 @@ class RouteHelper
     public static function ADMIN_ROUTE(array $paths): array
     {
         return self::filterByPatterns($paths, [
-            '#^/api/private/admin#',
-            '#^/api/private/vehicule#',
-            '#^/api/private/contrat#',
-            '#^/api/private/client#',
-            '#^/api/private/paiement#',
-            '#^/api/private/maintenance#',
-            '#^/api/private/incident#',
-            '#^/api/private/extra#',
-            '#^/printer/admin#',
+            '#^/api/private#',
+            '#^/printer#',
+            '#^/admin#',
         ]);
     }
 

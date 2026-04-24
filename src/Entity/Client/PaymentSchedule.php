@@ -124,6 +124,14 @@ class PaymentSchedule
 
     public function getContract(): ?Contract
     {
+        if ($this->contract !== null) {
+            try {
+                $this->contract->getStatus();
+            }
+            catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                return null;
+            }
+        }
         return $this->contract;
     }
 
@@ -158,7 +166,7 @@ class PaymentSchedule
     /**
      * @Groups({"payment_schedule"})
      */
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
         return 'Échéance ' . ($this->expectedDate ? $this->expectedDate->format('d/m/Y') : '');
     }
@@ -166,7 +174,7 @@ class PaymentSchedule
     /**
      * @Groups({"payment_schedule"})
      */
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return 'Statut: ' . $this->status . ' - Montant: ' . $this->amount;
     }

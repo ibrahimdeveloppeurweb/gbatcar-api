@@ -345,7 +345,7 @@ class Client
     /**
      * @Groups({"client"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return trim($this->firstName . ' ' . $this->lastName);
     }
@@ -353,7 +353,7 @@ class Client
     /**
      * @Groups({"client"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return 'Client/Locataire';
     }

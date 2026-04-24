@@ -23,7 +23,8 @@ class MenuData
                 'nom' => 'MENU_PARENT_CLIENTS',
                 'subItems' => [
                     ['label' => 'Tableau de bord', 'link' => '/gbatcar/clients/dashboard', 'nom' => 'MENU_CLIENTS_DASHBOARD'],
-                    ['label' => 'Tous les Clients', 'link' => '/gbatcar/clients', 'nom' => 'MENU_CLIENTS_LIST']
+                    ['label' => 'Tous les Clients', 'link' => '/gbatcar/clients', 'nom' => 'MENU_CLIENTS_LIST'],
+                    ['label' => 'Demandes de Souscription', 'link' => '/gbatcar/clients/subscriptions', 'nom' => 'MENU_CLIENTS_SUBSCRIPTIONS']
                 ]
             ],
             // Parc Automobile

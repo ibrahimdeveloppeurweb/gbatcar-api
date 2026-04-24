@@ -381,12 +381,12 @@ class Vehicle
         return $this->id;
     }
 
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
         return trim($this->marque . ' ' . $this->modele . ' ' . $this->immatriculation);
     }
 
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return 'Véhicule ' . $this->statut;
     }
@@ -572,20 +572,56 @@ class Vehicle
     {
         // Dynamic status check if attached to an active contract (direct or fleet)
         $activeStatusesList = ['ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'ACTIF', 'VALIDATED', 'VALIDé'];
+        $soldStatusesList = ['TERMINÉ', 'SOLDÉ'];
 
+        // 1. Check for Active Contracts (Direct)
         if ($this->contracts !== null) {
             foreach ($this->contracts as $contract) {
-                if (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours'])) {
+                $status = mb_strtoupper($contract->getStatus() ?? '', 'UTF-8');
+                if (in_array($status, $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours'])) {
                     return 'En Location-Vente';
                 }
             }
         }
 
+        // 2. Check for Active Contracts (Fleet)
         if ($this->vehicleDemands !== null) {
             foreach ($this->vehicleDemands as $demand) {
-                $contract = $demand->getContract();
-                if ($contract && (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours']))) {
-                    return 'En Location-Vente';
+                try {
+                    $contract = $demand->getContract();
+                    if ($contract) {
+                        $status = mb_strtoupper($contract->getStatus() ?? '', 'UTF-8');
+                        if (in_array($status, $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours'])) {
+                            return 'En Location-Vente';
+                        }
+                    }
+                }
+                catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                    continue;
+                }
+            }
+        }
+
+        // 3. Check for Terminated/Sold Contracts (Direct)
+        if ($this->contracts !== null) {
+            foreach ($this->contracts as $contract) {
+                if (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $soldStatusesList)) {
+                    return 'Vendu';
+                }
+            }
+        }
+
+        // 4. Check for Terminated/Sold Contracts (Fleet)
+        if ($this->vehicleDemands !== null) {
+            foreach ($this->vehicleDemands as $demand) {
+                try {
+                    $contract = $demand->getContract();
+                    if ($contract && in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $soldStatusesList)) {
+                        return 'Vendu';
+                    }
+                }
+                catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                    continue;
                 }
             }
         }
@@ -604,8 +640,13 @@ class Vehicle
         // Try to get from active contract first for real-time accuracy
         if ($this->contracts !== null) {
             foreach ($this->contracts as $contract) {
-                if (in_array(strtoupper($contract->getStatus() ?? ''), ['ACTIVE', 'EN COURS', 'VALIDÉ', 'ACTIF', 'VALIDATED'])) {
-                    return $contract->getPaymentStatus() ?: $this->paymentStatus;
+                try {
+                    if (in_array(strtoupper($contract->getStatus() ?? ''), ['ACTIVE', 'EN COURS', 'VALIDÉ', 'ACTIF', 'VALIDATED'])) {
+                        return $contract->getPaymentStatus() ?: $this->paymentStatus;
+                    }
+                }
+                catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                    continue;
                 }
             }
         }
@@ -1146,17 +1187,27 @@ class Vehicle
 
         if ($this->contracts !== null) {
             foreach ($this->contracts as $contract) {
-                if (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours'])) {
-                    return $contract;
+                try {
+                    if (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours'])) {
+                        return $contract;
+                    }
+                }
+                catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                    continue;
                 }
             }
         }
 
         if ($this->vehicleDemands !== null) {
             foreach ($this->vehicleDemands as $demand) {
-                $contract = $demand->getContract();
-                if ($contract && (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours']))) {
-                    return $contract;
+                try {
+                    $contract = $demand->getContract();
+                    if ($contract && (in_array(mb_strtoupper($contract->getStatus() ?? '', 'UTF-8'), $activeStatusesList) || in_array($contract->getStatus(), ['Validé', 'Actif', 'En cours']))) {
+                        return $contract;
+                    }
+                }
+                catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                    continue;
                 }
             }
         }

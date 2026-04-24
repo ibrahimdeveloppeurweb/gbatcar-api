@@ -1,0 +1,19 @@
+<div id="invoice-top">
+    <div class="logo" style="height: 30px; width: 25%;">
+        {% if setting is defined and setting.photo is defined and setting.photo %}
+            <img height="88" width="130" src="{{ host ~ '/' ~ setting.photoSrc }}"/>
+        {% else %}
+            <p align="center" style="font-weight:lighter">VOTRE LOGO ICI</p>
+        {% endif %}
+    </div>
+    <div class="entete-page" style="height: 30px; width: 50%;">
+        <p align="center" style="font-size: xx-small; font-weight:lighter">
+            {{ setting is defined and setting and setting.entete is defined ? setting.entete : null }}
+        </p>
+    </div>
+    <div class="info" style="height: 30px; width: 30%;">
+        {% if setting is defined and setting.agree is defined and setting.agree %}
+            <img height="88" width="110" src="{{host ~ '/' ~ 'uploads/default/agree.png'}}"  class="opacity"/>
+        {% endif %}
+    </div>
+</div>

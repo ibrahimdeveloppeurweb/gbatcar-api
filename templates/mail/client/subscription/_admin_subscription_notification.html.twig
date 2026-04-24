@@ -1,0 +1,121 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+<table class="es-content" cellspacing="0" cellpadding="0" align="center">
+    <tbody>
+        <tr>
+            <td class="esd-stripe" align="center">
+                <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                    <tbody>
+                        <tr>
+                            <td class="esd-structure es-p20t es-p35r es-p35l" align="left">
+                                <table width="100%" cellspacing="0" cellpadding="0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                <table width="100%" cellspacing="0" cellpadding="0">
+                                                    <tbody>
+                                                        <tr>
+                                                            {{ include('shared/mail/_logo.html.twig') }}
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="esd-block-text" align="center">
+                                                                <h2 style="font-size: 24px; color: #1a1a1a; margin-top: 10px;">Dossier de Souscription d'un prospect</h2>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" align="left">
+                                <table width="100%" cellspacing="0" cellpadding="0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="esd-container-frame" width="530" valign="top" align="left">
+                                                <table width="100%" cellspacing="0" cellpadding="0">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td class="esd-block-text">
+                                                                <p style="font-size: 15px; border-left: 4px solid #d4a04d; padding-left: 10px; margin-bottom: 20px;">
+                                                                    Une nouvelle demande de souscription vient d'être soumise via le portail public. Veuillez trouver ci-dessous les détails pour traitement.
+                                                                </p>
+
+                                                                <!-- Client Section -->
+                                                                <div style="margin-bottom: 30px;">
+                                                                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #eee;">
+                                                                        <h3 style="margin: 0 0 15px 0; font-size: 18px; color: #d4a04d; text-transform: uppercase;">1. Informations du prospect</h3>
+                                                                        <table width="100%" style="font-size: 14px; line-height: 1.6;">
+                                                                            <tr><td width="40%"><strong>Type de client :</strong></td><td>{{ subscription.clientType }}</td></tr>
+                                                                            <tr><td><strong>Nom Complet / Gérant :</strong></td><td>{{ subscription.fullName }}</td></tr>
+                                                                            {% if subscription.clientType == 'Entreprise' %}
+                                                                                <tr><td><strong>Raison Sociale :</strong></td><td>{{ subscription.companyName }}</td></tr>
+                                                                                <tr><td><strong>N° Compte Contribuable :</strong></td><td>{{ subscription.taxAccountNb }}</td></tr>
+                                                                            {% endif %}
+                                                                            <tr><td><strong>E-mail :</strong></td><td><a href="mailto:{{ subscription.email }}" style="color: #d4a04d;">{{ subscription.email }}</a></td></tr>
+                                                                            <tr><td><strong>Téléphone :</strong></td><td>{{ subscription.phone }}</td></tr>
+                                                                            <tr><td><strong>Localisation :</strong></td><td>{{ subscription.location }}</td></tr>
+                                                                            {% if subscription.profession %}<tr><td><strong>Profession :</strong></td><td>{{ subscription.profession }}</td></tr>{% endif %}
+                                                                            {% if subscription.monthlyIncome %}<tr><td><strong>Revenu Mensuel :</strong></td><td>{{ subscription.monthlyIncome }}</td></tr>{% endif %}
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+
+                                                                <!-- Request Section -->
+                                                                <div style="margin-bottom: 30px;">
+                                                                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #eee;">
+                                                                        <h3 style="margin: 0 0 15px 0; font-size: 18px; color: #d4a04d; text-transform: uppercase;">2. Détails de la Souscription</h3>
+                                                                        <table width="100%" style="font-size: 14px; line-height: 1.6;">
+                                                                            <tr><td width="40%"><strong>Véhicule souhaité :</strong></td><td>{{ subscription.vehicleType }}</td></tr>
+                                                                            <tr><td><strong>Nombre de véhicules :</strong></td><td>{{ subscription.vehicleCount }}</td></tr>
+                                                                            <tr><td><strong>Type de contrat :</strong></td><td>{{ subscription.contractType }}</td></tr>
+                                                                            <tr><td><strong>Mode de paiement :</strong></td><td>{{ subscription.paymentMethod }}</td></tr>
+                                                                            <tr><td><strong>Date de soumission :</strong></td><td>{{ subscription.createdAt|date('d/m/Y H:i') }}</td></tr>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+
+                                                                <!-- Documents Section -->
+                                                                <div style="margin-bottom: 30px;">
+                                                                    <div style="background-color: #ffffff; padding: 15px; border-radius: 4px; border: 1px solid #eee;">
+                                                                        <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #d4a04d; text-transform: uppercase;">3. Documents Joints</h3>
+                                                                        <p style="font-size: 13px; color: #777; margin-bottom: 10px;">Les fichiers sont disponibles dans le répertoire de stockage du serveur.</p>
+                                                                        <ul style="font-size: 14px; color: #333;">
+                                                                            {% if subscription.permis %}<li>Certificat de permis de conduire : <span style="color: #28a745;">PRÉSENT</span></li>{% endif %}
+                                                                            {% if subscription.cni %}<li>Pièce d'identité : <span style="color: #28a745;">PRÉSENT</span></li>{% endif %}
+                                                                            {% if subscription.casier %}<li>Casier judiciaire : <span style="color: #28a745;">PRÉSENT</span></li>{% endif %}
+                                                                            {% if subscription.photos %}<li>Photos d'identité : <span style="color: #28a745;">PRÉSENT</span></li>{% endif %}
+                                                                            {% if subscription.rc %}<li>Registre de commerce (RC) : <span style="color: #28a745;">PRÉSENT</span></li>{% endif %}
+                                                                            {% if subscription.dfe %}<li>DFE : <span style="color: #28a745;">PRÉSENT</span></li>{% endif %}
+                                                                            {% if subscription.statut %}<li>Statuts de l'entreprise : <span style="color: #28a745;">PRÉSENT</span></li>{% endif %}
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div style="text-align: center; margin-top: 40px;">
+                                                                    <p style="font-size: 15px; margin-bottom: 20px;">Veuillez traiter cette demande dans les meilleurs délais.</p>
+                                                                    <a href="#" style="background-color: #d4a04d; color: #ffffff; padding: 15px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 16px;">CONSULTER SUR L'ADMIN DASHBOARD</a>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
+{% endblock %}
+
+{% block content %}{% endblock %}

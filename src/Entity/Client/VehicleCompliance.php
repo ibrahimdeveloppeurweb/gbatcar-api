@@ -300,12 +300,12 @@ class VehicleCompliance
         return $this->id;
     }
 
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
-        return 'Conformité - ' . ($this->vehicle ? $this->vehicle->getSearchableTitle() : 'N/A');
+        return 'Conformité - ' . ($this->vehicle ? $this->vehicle->getTitle() : 'N/A');
     }
 
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return 'Documents légaux et techniques';
     }

@@ -13,16 +13,19 @@ class ClientManager
     private $em;
     private $clientRepository;
     private $uploadDir;
+    private $clientMailing;
 
     public function __construct(
         EntityManagerInterface $em,
         ClientRepository $clientRepository,
-        KernelInterface $kernel
+        KernelInterface $kernel,
+        \App\Mailing\ClientMailing $clientMailing
         )
     {
         $this->em = $em;
         $this->clientRepository = $clientRepository;
         $this->uploadDir = $kernel->getProjectDir() . '/public/uploads/clients/';
+        $this->clientMailing = $clientMailing;
     }
 
     public function create(object $data, Request $request): Client
@@ -33,6 +36,8 @@ class ClientManager
 
         $this->em->persist($client);
         $this->em->flush();
+
+
 
         return $client;
     }
@@ -53,6 +58,15 @@ class ClientManager
 
     public function delete(Client $client): Client
     {
+        // On vérifie si le client a des contrats validés ou actifs
+        foreach ($client->getContracts() as $contract) {
+            $status = strtoupper($contract->getStatus() ?? '');
+            // On bloque si le contrat est dans un état qui implique une validation passée ou présente
+            if (in_array($status, ['VALIDÉ', 'VALIDATED', 'ACTIVE', 'EN COURS', 'EN_COURS', 'TERMINÉ', 'SOLDÉ', 'PROLONGÉ'])) {
+                throw new \Exception("Impossible de supprimer ce client car il possède un contrat validé ou actif (" . $contract->getReference() . ").");
+            }
+        }
+
         $client->setDeletedAt(new \DateTime());
         $this->em->flush();
 
@@ -64,6 +78,9 @@ class ClientManager
         $client->setStatus('Dossier Validé');
         $client->setValidationDate(new \DateTimeImmutable());
         $this->em->flush();
+
+        // Envoi du mail de bienvenue
+        $this->clientMailing->clientRegistered($client);
 
         return $client;
     }

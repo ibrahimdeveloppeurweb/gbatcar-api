@@ -57,12 +57,12 @@ class MaintenanceProvider
         return $this;
     }
 
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
         return $this->name ?? '';
     }
 
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return 'Prestataire de maintenance';
     }

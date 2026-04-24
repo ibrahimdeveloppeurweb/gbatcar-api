@@ -1,0 +1,90 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+ <table class="es-content" cellspacing="0" cellpadding="0" align="center">
+        <tbody>
+            <tr>
+                <td class="esd-stripe" align="center">
+                    <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                        <tbody>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+ 							                                    {{ include('shared/mail/_logo.html.twig') }}
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text" align="center">
+                                                                    <h2 style="font-size: 20px;">Bonjour {{ client.civilite ~ ' ' ~ client.lastName }}<br></h2>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p15t es-p10b" align="center">
+                                                                    <p style="font-size: 16px; color: #777777;"><br></p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p20t" align="center">
+                                                                    <p style="font-size: 16px; color: #777777;">
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Nous vous informons que votre contrat de location vente a été validé avec succès pour un suivi rigoureux de votre dossier.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Nous vous remercions de bien vouloir vérifier les informations présentées ci-dessous.</p>
+                                                                        ------------------------------------------
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Contrat : </span> {{ contract.reference }} </p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Date d'effet : </span> {{ contract.startDate| date("d/m/Y") }}</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Véhicule(s) : </span> {{ contract.vehicleSummary }} </p>
+                                                                        ------------------------------------------
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold; color: #D80010;">Vos accès à l'application mobile :</p>
+                                                                        {% if credentials %}
+                                                                        <p style="margin: 5px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Login (Email) : </span> {{ credentials.username }} </p>
+                                                                        <p style="margin: 5px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Mot de passe temporaire : </span> <span style="background-color: #f8f9fa; border: 1px dashed #D80010; padding: 2px 6px; font-weight: bold; font-family: monospace;">{{ credentials.password }}</span></p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-size: 13px; color: #7987a1;">* Nous vous recommandons de changer ce mot de passe dès votre première connexion.</p>
+                                                                        {% else %}
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-size: 13px; color: #7987a1;">Utilisez votre adresse email pour vous connecter. Si vous n'avez pas de mot de passe, utilisez la fonction "Mot de passe oublié".</p>
+                                                                        {% endif %}
+                                                                        ------------------------------------------
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Se connecter à l'application mobile pour plus de détails.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Nous vous prions de bien vouloir vous connecter à notre application mobile pour suivre votre gestion avec nous.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Je vous remercie pour votre confiance.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Cordialement,</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">GBATCAR vous offre une solution de location vente innovante qui vous permet de gérer votre véhicule en toute sérénité, tout en restant connecté à notre agence.</p>
+                                                                    </p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block content %}{% endblock %}

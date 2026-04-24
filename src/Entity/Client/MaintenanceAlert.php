@@ -155,7 +155,7 @@ class MaintenanceAlert
     /**
      * @Groups({"alert"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return 'Alerte ' . $this->type;
     }
@@ -163,7 +163,7 @@ class MaintenanceAlert
     /**
      * @Groups({"alert"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return 'Sévérité : ' . $this->severity;
     }
@@ -254,6 +254,14 @@ class MaintenanceAlert
 
     public function getContract(): ?Contract
     {
+        if ($this->contract !== null) {
+            try {
+                $this->contract->getStatus();
+            }
+            catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                return null;
+            }
+        }
         return $this->contract;
     }
 

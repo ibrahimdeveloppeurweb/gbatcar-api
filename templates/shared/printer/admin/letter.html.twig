@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title> .:: ZENAPI | {% block title %} Saisir un titre {% endblock %} ::. </title>
+        {% if setting is defined and setting.photo is defined and setting.photo %}
+            <link rel="shortcut icon" type="image/x-icon" href="{{ setting.photoSrc }}">
+        {% endif %}
+        <style type="text/css">
+            /** Define the footer rules **/
+                #watermark { 
+                position: fixed; 
+                text-align: center;
+                right: 30%; 
+                left: 30%; 
+                bottom: 0%;
+                top: 25%;
+                height: 350px; 
+                opacity: .1;
+                filter: gray;
+                -webkit-filter: grayscale(100%);
+                filter: grayscale(100%);
+            }
+            @page {
+                margin: 35px 15px 0 15px !important;
+                text-align: justify;
+                text-justify: inter-word
+            }
+            .page-break {
+                page-break-before: always;
+            }
+            .underline {
+                text-decoration: underline;
+            }
+            .uppercase{
+                text-transform: uppercase;
+            }
+            .italic{
+                font-style: italic
+            }
+            .bg-success {
+                background: #90eb50;
+            }
+            .bg-danger {
+                background: #eb5454;
+            }
+            .td-w35 {
+                width: 35px;
+            }
+            .td-w100 {
+                width: 100px;
+            }
+            .bold {                
+                font-weight: bold;
+            }
+            .fs-12{
+                font-size: 12px;
+            }
+            .fs-20{
+                font-size: 20px;
+            }
+            .left {
+                text-align: left;
+                padding-left: 3px;
+            }
+            .right {
+                text-align: right;
+                padding-right: 3px;
+            }
+            .center {
+                text-align: center;
+            }
+            .bold {
+                font-weight: bold;
+            }
+            .flex{
+               display:inline; 
+               float:left; 
+               margin-right:300px;
+            }
+            .bottom{
+                margin-bottom: 15px;
+            }
+            .inter-ligne-big {
+                margin-bottom: 150px;
+            }
+            .right-align {
+                text-align: right; padding-right: 5px;
+            }
+            .no-border {
+                border: none;
+            }
+            footer {
+                position: fixed; 
+                margin-top: 45px; 
+                bottom: 0cm; 
+                left: 0cm; 
+                right: 0cm;
+                height: 2cm;
+            }
+            @import url(https://fonts.googleapis.com/css?family=Roboto:100,300,400,900,700,500,300,100);
+            *{
+                margin: 0;
+                box-sizing: border-box;
+            }
+            #dossier{
+                font-size: 10px;
+            }
+            body{
+                background: white;
+                font-family: sans-serif;                
+                background-repeat: repeat-y;
+                width: 100%;
+                display: flex;
+            }
+
+            @media (orientation: landscape) {
+                body {
+                    flex-direction: row;
+                }
+            }
+            ::selection {background: #f31544; color: #FFF;}
+            ::moz-selection {background: #f31544; color: #FFF;}
+            h1{
+                font-size: 1.5em;
+                color: #222;
+            }
+            .maj{
+                text-transform: uppercase;
+            }
+            .d-flex{
+                display:flex
+            }
+            .lettre{
+                margin-top: 50px; 
+                margin-bottom: 40px;
+            }
+            h2{font-size: .9em;}
+            .centrer {
+                text-align: center; 
+                font-size: .9em; 
+                font-weight: bold;
+            }
+            h3{
+                font-size: 1.2em;
+                font-weight: 300;
+                line-height: 2em;
+            }
+            p{
+                font-size: .9em;
+                color: #666;
+                line-height: 1.5em;
+            }
+            .tete{
+                top: 20px;
+            }
+            .titre {
+                font-size: 1em;
+                color: #ff0000;
+                line-height: 1.2em;
+            }
+            [id*='invoice-']{ /* Targets all id with 'col-' */
+                padding: 30px;
+            }
+            #invoice-top{min-height: 120px;}
+            #invoice-mid{
+                min-height: 120px;
+                text-align: center;
+            }
+            #invoice-bot{ 
+                min-height: 250px;
+            }
+            .logo{
+                float: left;       
+            }
+            .info{
+                display:block;
+                float:left;
+                margin-left: 8px;
+            }
+            .entete-page{
+                display:block;
+                float:left;
+                margin-left: 10px;
+            }
+            .title{
+                float: right;
+            }
+            .title p{text-align: right;}
+            #project{margin-left: 52%;}
+            table{
+                width: 100%;
+                border-collapse: collapse;
+            }
+            td{
+                padding: 5px 0 5px 15px;
+                border: 0.5px solid #000
+            }
+            .tabletitle{
+                padding: 3px;
+                color: #FFF;
+                background: #82807F;
+            }
+            .service{}
+            .item{width: 50%;}
+            .itemtext{font-size: .9em;color:black;}            
+            .itemtextB{font-size: .9em; font-weight: bold; margin-left:10px; margin-right:10px;}
+            .effect {
+                position: relative;
+            }
+            .etat{
+                border: 0.5px solid;
+                padding: 5px;
+                font-weight: 900;
+                font-size: 15px;
+                width: 100%;
+                border-radius: 5px;
+                margin-bottom: 10px;
+            }
+            .date{
+                padding: 5px;
+                text-align: right;
+            }
+            .none {
+                border-style:none;
+            }
+        </style>
+    </head>
+
+    <body>
+        {# HAUT DE PAGE #}
+        {{ include('shared/printer/admin/_entete.html.twig') }}
+
+        <div style="height: 20px;"></div>   
+
+        {# ENTETE DE PAGE #}
+        <div id="invoice-bot" style="margin-top: 40px;">
+            <div style="height: 80px;"></div>
+            {% block body %}
+            {% endblock %} 
+        </div>
+
+        {# BAS DE PAGE #}
+        <footer>
+            <div id="watermark">
+                <img src="{{host ~ '/' ~ 'uploads/default/agree.png'}}" height="100%" width="100%">
+            </div>
+            <div id="invoice-bot" style="position: absolute; bottom: 7px; left:2px;">
+                {% block footer %}
+                    <p align="right;" style="font-size: xx-small; font-weight:lighter;">
+                        Imprimé le : {{ "NOW"|format_datetime(pattern="dd MMMM hh:mm:ss", locale='fr') }} 
+                        Par : {{ user.libelle }}
+                    </p>
+                    <hr style=""/>
+                    <p align="center" style="font-size:xx-small; font-weight:lighter">
+                        {{setting ? setting.piedPage : null }}
+                    </p>
+                {% endblock %}
+            </div>
+        </footer>
+
+        {% block script %}{% endblock %}
+    </body>
+</html>

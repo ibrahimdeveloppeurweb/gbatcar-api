@@ -1,0 +1,80 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+ <table class="es-content" cellspacing="0" cellpadding="0" align="center">
+        <tbody>
+            <tr>
+                <td class="esd-stripe" align="center">
+                    <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                        <tbody>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+							                                    {{ include('shared/mail/_logo.html.twig') }}
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text" align="center">
+                                                                    <h2 style="font-size: 20px;">Avis d'Impayé - {{ client.civilite ~ ' ' ~ client.lastName }}<br></h2>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p15t es-p10b" align="center">
+                                                                    <p style="font-size: 16px; color: #777777;"><br></p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p20t" align="center">
+                                                                    <p style="font-size: 16px; color: #777777;">
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Nous vous informons qu'un impayé a été détecté sur votre contrat de location-vente.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Détails de l'impayé :</p>
+                                                                        ------------------------------------------
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Contrat : </span> {{ contract.reference }} </p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Échéance : </span> {{ contract.nextPaymentDate ? contract.nextPaymentDate|date("d/m/Y") : 'N/A' }} </p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Montant Dû : </span> {{ contract.unpaidAmount|number_format(0, ',', ' ') }} FCFA </p>
+                                                                        ------------------------------------------
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Nous vous prions de régulariser votre situation immédiatement pour éviter toute suspension de service ou pénalités de retard.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Si vous avez déjà effectué votre paiement, merci de ne pas tenir compte de cet avis.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Cordialement,</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">L'équipe GBATCAR</p>
+                                                                    </p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block content %}{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+ <table class="es-content" cellspacing="0" cellpadding="0" align="center">
+        <tbody>
+            <tr>
+                <td class="esd-stripe" align="center">
+                    <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                        <tbody>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+                                                                {{ include('shared/mail/_logo.html.twig') }}
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text" align="center">
+                                                                    <h2 style="font-size: 20px;">Confirmation de Paiement - {{ client.civilite ~ ' ' ~ client.lastName }}<br></h2>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <div style="background-color: #f8f9fa; border: 1px solid #eeeeee; padding: 25px; border-radius: 5px; text-align: left;">
+                                                        <p style="margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: #333333;">
+                                                            Nous vous confirmons la bonne réception de votre paiement.
+                                                        </p>
+                                                        
+                                                        <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+                                                            <tr>
+                                                                <td style="padding: 8px 0; border-bottom: 1px solid #eeeeee; font-size: 14px;">
+                                                                    <span style="font-weight: bold; color: #555555;">Référence :</span> {{ payment.reference }}
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="padding: 8px 0; border-bottom: 1px solid #eeeeee; font-size: 14px;">
+                                                                    <span style="font-weight: bold; color: #555555;">Montant :</span> <span style="font-size: 16px; color: #D80010; font-weight: bold;">{{ payment.amount|number_format(0, ',', ' ') }} FCFA</span>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="padding: 8px 0; border-bottom: 1px solid #eeeeee; font-size: 14px;">
+                                                                    <span style="font-weight: bold; color: #555555;">Type de paiement :</span> {{ payment.type }}
+                                                                </td>
+                                                            </tr>
+                                                            
+                                                            {# Display relevant details based on payment type #}
+                                                            {% if payment.type in ['Mensualité', 'Hebdomadaire', 'Journalier'] and payment.period and payment.period|lower != 'initial' %}
+                                                            <tr>
+                                                                <td style="padding: 8px 0; border-bottom: 1px solid #eeeeee; font-size: 14px;">
+                                                                    <span style="font-weight: bold; color: #555555;">Période(s) concernée(s) :</span> {{ payment.period }}
+                                                                </td>
+                                                            </tr>
+                                                            {% endif %}
+
+                                                            {% if payment.observation %}
+                                                            <tr>
+                                                                <td style="padding: 8px 0; border-bottom: 1px solid #eeeeee; font-size: 14px;">
+                                                                    <span style="font-weight: bold; color: #555555;">{% if payment.type == 'PÉNALITÉ' %}Motif de la pénalité{% else %}Observation / Note{% endif %} :</span> {{ payment.observation }}
+                                                                </td>
+                                                            </tr>
+                                                            {% endif %}
+
+                                                            <tr>
+                                                                <td style="padding: 8px 0; border-bottom: 1px solid #eeeeee; font-size: 14px;">
+                                                                    <span style="font-weight: bold; color: #555555;">Date :</span> {{ payment.date|date("d/m/Y H:i") }}
+                                                                </td>
+                                                            </tr>
+                                                            {% if contract %}
+                                                            <tr>
+                                                                <td style="padding: 8px 0; border-bottom: 1px solid #eeeeee; font-size: 14px;">
+                                                                    <span style="font-weight: bold; color: #555555;">Contrat :</span> {{ contract.reference }}
+                                                                </td>
+                                                            </tr>
+                                                            {% endif %}
+                                                        </table>
+                                                    </div>
+
+                                                    <table width="100%" cellspacing="0" cellpadding="0" style="margin-top: 30px;">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td align="left">
+                                                                    <p style="margin: 10px 0; font-size: 14px; color: #666666;">
+                                                                        Votre reçu de paiement complet est disponible en téléchargement sur votre espace client.
+                                                                    </p>
+                                                                    <p style="margin: 20px 0 0 0; font-weight: bold; font-size: 14px;">Merci de votre confiance.</p>
+                                                                    <p style="margin: 5px 0; font-weight: bold; color: #D80010;">L'équipe GBATCAR</p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block content %}{% endblock %}

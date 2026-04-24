@@ -1,0 +1,94 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+ <table class="es-content" cellspacing="0" cellpadding="0" align="center">
+        <tbody>
+            <tr>
+                <td class="esd-stripe" align="center">
+                    <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                        <tbody>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+  							                                    {{ include('shared/mail/_logo.html.twig') }}
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text" align="center">
+                                                                    <h2 style="font-size: 20px;">Bonjour {{ client.civilite ~ ' ' ~ client.lastName }}<br></h2>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p15t es-p10b" align="center">
+                                                                    <p style="font-size: 16px; color: #777777;">
+                                                                        Nous vous informons qu'un prolongement de <strong>{{ days }} jours</strong> a été appliqué à votre contrat <strong>{{ contract.reference }}</strong> suite à une situation de force majeure ou une suspension temporaire.
+                                                                    </p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <div style="background-color: #f8f9fa; border: 1px solid #eeeeee; padding: 20px; border-radius: 5px; text-align: left;">
+                                                        <p style="margin: 0 0 10px 0; font-size: 15px;">
+                                                            <span style="font-weight: bold; color: #D80010;">Impact sur votre contrat :</span>
+                                                        </p>
+                                                        <p style="margin: 5px 0; font-size: 14px;">
+                                                            - <span style="font-weight: bold;">Nombre de jours ajoutés :</span> {{ days }} jours
+                                                        </p>
+                                                        <p style="margin: 5px 0; font-size: 14px;">
+                                                            - <span style="font-weight: bold;">Nouvelle date de fin de contrat :</span> {{ lastInstallmentDate|date("d/m/Y") }}
+                                                        </p>
+                                                        {% if vehicle %}
+                                                        <p style="margin: 5px 0; font-size: 14px;">
+                                                            - <span style="font-weight: bold;">Véhicule :</span> {{ vehicle.marque ~ ' ' ~ vehicle.modele ~ ' (' ~ vehicle.immatriculation ~ ')' }}
+                                                        </p>
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <table width="100%" cellspacing="0" cellpadding="0" style="margin-top: 30px;">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td align="left">
+                                                                    <p style="margin: 10px 0; font-size: 14px; color: #555555;">
+                                                                        Votre calendrier de paiement a été automatiquement décalé pour tenir compte de cette période. Vous pouvez consulter les nouvelles dates d'échéance sur votre application mobile <strong>GBATCAR</strong>.
+                                                                    </p>
+                                                                    
+                                                                    <hr style="border: 0; border-top: 1px solid #eeeeee; margin: 20px 0;">
+                                                                    
+                                                                    <p style="margin: 20px 0 10px 0; font-weight: bold">Nous vous remercions de votre collaboration.</p>
+                                                                    <p style="margin: 0; font-weight: bold">L'équipe GBATCAR</p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block content %}{% endblock %}
