@@ -424,7 +424,7 @@ class User implements UserInterface
     /**
      * @Groups({"user"})
      */
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
 
         return $this->getLibelle();
@@ -433,7 +433,7 @@ class User implements UserInterface
     /**
      * @Groups({"user"})
      */
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return 'E-mail: ' . $this->username;
     }

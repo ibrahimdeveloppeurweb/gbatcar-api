@@ -70,7 +70,29 @@ class VehicleRepository extends ServiceEntityRepository
         }
 
         if ($status && is_string($status)) {
-            if ($assignedVehicleId) {
+            if ($status === 'Disponible' || $status === 'DISPONIBLE') {
+                $query->andWhere('v.statut = :status');
+
+                // Exclude if has any valid/active/sold contract
+                $allOccupiedStatuses = "('ACTIVE', 'EN COURS', 'EN_COURS', 'VALIDÉ', 'Actif', 'En cours', 'Validé', 'TERMINÉ', 'SOLDÉ')";
+
+                $query->andWhere("NOT EXISTS (
+                    SELECT c_occ.id FROM App\Entity\Client\Contract c_occ 
+                    WHERE c_occ.vehicle = v.id 
+                    AND c_occ.status IN $allOccupiedStatuses 
+                    AND c_occ.deletedAt IS NULL
+                )");
+
+                $query->andWhere("NOT EXISTS (
+                    SELECT demand_occ.id FROM App\Entity\Client\ContractVehicleDemand demand_occ
+                    JOIN demand_occ.assignedVehicles v_occ
+                    JOIN demand_occ.contract c_fleet_occ
+                    WHERE v_occ.id = v.id
+                    AND c_fleet_occ.status IN $allOccupiedStatuses
+                    AND c_fleet_occ.deletedAt IS NULL
+                )");
+            }
+            elseif ($assignedVehicleId) {
                 $query->andWhere('(v.statut = :status OR v.id = :assignedVehicleId)')
                     ->setParameter('assignedVehicleId', $assignedVehicleId);
             }

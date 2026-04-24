@@ -1,0 +1,22 @@
+<div id="invoice-bot" style="position: relative; bottom: 5px; left:2px;">
+    <div class="box-auto">
+        <div style="border: none; width: 20px; height:20px; float:left; width:5%;">
+            {% if config is defined and config %}
+                {% if qrcode is defined and config.qrcode(qrcode) %}
+                    <img style="text-align: left; margin-bottom: 0;" src="{{ config.qrcode(qrcode) }}" height="40" width="40">
+                {% endif %}
+            {% endif %}
+        </div>
+        <div class="right" style="float:right; width:94%;">
+            {# <p class="imprimer-text" style="font-size: 6px;">
+                Imprimé le : {{ "NOW"|format_datetime(pattern="dd MMMM y hh:mm:ss", locale='fr') }} 
+                Par : {{ user is defined ? user.libelle : null}}
+            </p> #}
+            <hr style=""/>
+            {# <p align="center" style="font-size:xx-small; font-weight:lighter"> #}
+            <p align="center" style="font-size:9px; font-weight:lighter">
+                {{ user is defined and setting is defined and setting ? setting.piedPage : null }}
+            </p>
+        </div>
+    </div>
+</div>

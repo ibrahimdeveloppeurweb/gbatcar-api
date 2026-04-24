@@ -3,15 +3,15 @@
 namespace App\Traits;
 
 /*
-- Les entités utilisant le trait FileTrait doivent implémenter l'interface FileInterface
-afin de forcer l'implementation des méthodes obligatoires
-- Les entités utilisant le trait FileTrait doivent utiliser l'annotation @ORM\HasLifecycleCallbacks()
-afin d'effectuer les action en PreFlush et PreUpdate
-*/
+ - Les entités utilisant le trait FileTrait doivent implémenter l'interface FileInterface
+ afin de forcer l'implementation des méthodes obligatoires
+ - Les entités utilisant le trait FileTrait doivent utiliser l'annotation @ORM\HasLifecycleCallbacks()
+ afin d'effectuer les action en PreFlush et PreUpdate
+ */
 
 use Symfony\Component\Serializer\Annotation\Groups;
 
-trait  SearchableTrait
+trait SearchableTrait
 {
     protected $searchableTitle;
     protected $searchableDetail;
@@ -20,15 +20,11 @@ trait  SearchableTrait
      * @return string
      * @Groups({"searchable"})
      */
-    abstract function getSearchableTitle(): string;
-    
+    abstract function getTitle(): string;
+
     /**
      * @return string
      * @Groups({"searchable"})
      */
-    abstract function getSearchableDetail(): string;
+    abstract function getDetail(): string;
 }
-
-
-
-

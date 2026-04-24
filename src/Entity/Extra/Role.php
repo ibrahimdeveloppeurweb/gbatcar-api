@@ -123,7 +123,7 @@ class Role
     /**
      * @Groups({"role","user"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return $this->nom;
     }
@@ -131,7 +131,7 @@ class Role
     /**
      * @Groups({"role","user"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return $this->nom;
     }

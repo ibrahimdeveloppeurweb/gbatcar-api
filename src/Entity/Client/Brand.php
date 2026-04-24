@@ -97,7 +97,7 @@ class Brand
     /**
      * @Groups({"brand"})
      */
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
         return $this->name;
     }
@@ -105,7 +105,7 @@ class Brand
     /**
      * @Groups({"brand"})
      */
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return 'Marque de véhicule';
     }

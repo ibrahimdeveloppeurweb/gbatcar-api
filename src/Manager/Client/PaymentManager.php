@@ -14,18 +14,21 @@ class PaymentManager
     private $paymentRepository;
     private $security;
     private $scheduleManager;
+    private $clientMailing;
 
     public function __construct(
         EntityManagerInterface $em,
         PaymentRepository $paymentRepository,
         \Symfony\Component\Security\Core\Security $security,
-        PaymentScheduleManager $scheduleManager
+        PaymentScheduleManager $scheduleManager,
+        \App\Mailing\ClientMailing $clientMailing
         )
     {
         $this->em = $em;
         $this->paymentRepository = $paymentRepository;
         $this->security = $security;
         $this->scheduleManager = $scheduleManager;
+        $this->clientMailing = $clientMailing;
     }
 
     /**
@@ -129,6 +132,9 @@ class PaymentManager
             elseif (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE'])) {
                 $this->scheduleManager->refreshScheduleCoverage($payment->getContract());
             }
+
+            // Notification client
+            $this->clientMailing->payment($payment);
         }
 
         return $payment;
@@ -256,6 +262,9 @@ class PaymentManager
                 // For repairs, we still update the contract balance
                 $this->updateContractBalance($payment->getContract());
             }
+
+            // Notification client (Payment Receipt sent AFTER penalty update email)
+            $this->clientMailing->payment($payment);
         }
 
         return $payment;
@@ -369,6 +378,11 @@ class PaymentManager
         }
 
         $this->em->flush();
+
+        // Notification client
+        if (isset($penalty)) {
+            $this->clientMailing->penalty($penalty);
+        }
     }
 
     public function delete(Payment $payment): Payment

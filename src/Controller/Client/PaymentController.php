@@ -194,7 +194,14 @@ class PaymentController extends AbstractController
      */
     public function generateReceipt($uuid)
     {
-    // To be implemented
+        $payment = $this->paymentRepository->findOneByUuid($uuid);
+        if (!$payment) {
+            return $this->json(['message' => 'Paiement introuvable'], 404);
+        }
+
+        return $this->render('pdf/receipt_pdf.html.twig', [
+            'payment' => $payment
+        ]);
     }
 
     /**

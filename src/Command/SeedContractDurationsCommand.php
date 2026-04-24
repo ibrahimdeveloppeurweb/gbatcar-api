@@ -22,14 +22,14 @@ class SeedContractDurationsCommand extends Command
 
     protected function configure()
     {
-        $this->setDescription('Seed default contract durations (1 to 36 months)');
+        $this->setDescription('Seed default contract durations (1 to 90 months)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        for ($i = 1; $i <= 36; $i++) {
+        for ($i = 1; $i <= 90; $i++) {
             $name = "$i mois";
             $existing = $this->em->getRepository(ContractDuration::class)->findOneBy(['monthsCount' => $i]);
             if (!$existing) {

@@ -87,6 +87,12 @@ class Contract
      */
     private $endDate;
 
+    /**
+     * @ORM\Column(type="date_immutable", nullable=true)
+     * @Groups({"contract", "client"})
+     */
+    private $terminatedAt;
+
     // --- STATUTS & PROGRESSION ---
 
     /**
@@ -378,7 +384,7 @@ class Contract
     /**
      * @Groups({"contract"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return 'Contrat ' . $this->reference;
     }
@@ -386,7 +392,7 @@ class Contract
     /**
      * @Groups({"contract"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return 'Contrat ' . $this->status;
     }
@@ -612,6 +618,18 @@ class Contract
     public function setEndDate(?\DateTimeImmutable $endDate): self
     {
         $this->endDate = $endDate;
+
+        return $this;
+    }
+
+    public function getTerminatedAt(): ?\DateTimeImmutable
+    {
+        return $this->terminatedAt;
+    }
+
+    public function setTerminatedAt(?\DateTimeImmutable $terminatedAt): self
+    {
+        $this->terminatedAt = $terminatedAt;
 
         return $this;
     }

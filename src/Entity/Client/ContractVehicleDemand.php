@@ -62,6 +62,15 @@ class ContractVehicleDemand
 
     public function getContract(): ?Contract
     {
+        if ($this->contract !== null) {
+            try {
+                // Trigger lazy loading to check if entity exists
+                $this->contract->getStatus();
+            }
+            catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                return null;
+            }
+        }
         return $this->contract;
     }
 

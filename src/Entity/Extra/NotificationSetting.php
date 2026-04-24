@@ -158,7 +158,7 @@ class NotificationSetting
     /**
      * @Groups({"setting"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return "Configuration des Notifications";
     }
@@ -166,7 +166,7 @@ class NotificationSetting
     /**
      * @Groups({"setting"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return "Configuration globale des SMS, Emails et Modèles";
     }

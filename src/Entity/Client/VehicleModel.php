@@ -73,7 +73,7 @@ class VehicleModel
     /**
      * @Groups({"vehicle_model"})
      */
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
         return $this->name;
     }
@@ -89,7 +89,7 @@ class VehicleModel
     /**
      * @Groups({"vehicle_model"})
      */
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return $this->brand ? 'Modèle de ' . $this->brand->getName() : 'Modèle de véhicule';
     }

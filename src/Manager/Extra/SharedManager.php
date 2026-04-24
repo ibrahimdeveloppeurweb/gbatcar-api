@@ -152,8 +152,8 @@ class SharedManager
             $map[] = [
                 'id' => $entity->getId(),
                 'uuid' => $uuid,
-                'title' => $entity->getSearchableTitle(),
-                'detail' => $entity->getSearchableDetail(),
+                'title' => $entity->getTitle(),
+                'detail' => $entity->getDetail(),
                 'photoSrc' => $photoSrc
             ];
         }

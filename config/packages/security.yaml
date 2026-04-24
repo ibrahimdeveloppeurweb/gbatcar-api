@@ -34,8 +34,13 @@ security:
             stateless: true
             anonymous: true
 
+        api_subscription_public:
+            pattern:  ^/api/subscription/public
+            stateless: true
+            anonymous: true
+
         api:
-            pattern:   ^/api(?!/doc)
+            pattern:   ^/api(?!(/doc|/subscription/public|/public))
             stateless: true
             guard:
                 authenticators:

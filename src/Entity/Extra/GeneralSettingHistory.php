@@ -132,7 +132,7 @@ class GeneralSettingHistory
     /**
      * @Groups({"setting_history"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return "Historique Paramètres : " . $this->description;
     }
@@ -140,7 +140,7 @@ class GeneralSettingHistory
     /**
      * @Groups({"setting_history"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return "Modification effectuée le " . ($this->createdAt ? $this->createdAt->format('d/m/Y H:i') : '');
     }

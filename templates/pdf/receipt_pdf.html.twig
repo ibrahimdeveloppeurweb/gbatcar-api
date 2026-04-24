@@ -1,0 +1,42 @@
+{% extends 'pdf/layout.html.twig' %}
+
+{% block title %}Reçu de Paiement - {{ payment.reference }}{% endblock %}
+
+{% block body %}
+    <div class="title">Reçu de Paiement</div>
+    
+    <div style="text-align: right; margin-bottom: 20px;">
+        <strong>N° de Reçu :</strong> {{ payment.reference }}<br>
+        <strong>Date :</strong> {{ payment.date|date('d/m/Y') }}
+    </div>
+
+    <div class="section-title">Informations du Client</div>
+    <table>
+        <tr><th>Nom complet</th><td>{{ payment.client.name }}</td></tr>
+        <tr><th>Contract associé</th><td>{{ payment.contract.reference }}</td></tr>
+    </table>
+
+    <div class="section-title">Détails du Règlement</div>
+    <table>
+        <tr><th>Motif du paiement</th><td>{{ payment.type }}</td></tr>
+        <tr><th>Période / Note</th><td>{{ payment.period }} {{ payment.observation ? '- ' ~ payment.observation : '' }}</td></tr>
+        <tr><th>Mode de règlement</th><td>{{ payment.method }}</td></tr>
+        <tr><th>Statut</th><td>{{ payment.status }}</td></tr>
+        <tr><th>MONTANT PAYÉ</th><td class="amount">{{ payment.amount|number_format(0, ',', ' ') }} FCFA</td></tr>
+    </table>
+
+    <div style="margin-top: 30px; font-style: italic;">
+        Arrêté le présent reçu à la somme de : <strong>{{ payment.amount|number_format(0, ',', ' ') }} francs CFA</strong>.
+    </div>
+
+    <div class="signature-box">
+        <div class="signature-item" style="border: none;">
+            <!-- Spacing -->
+        </div>
+        <div class="signature-item">
+            <strong>La Comptabilité</strong><br>
+            Fait à Abidjan, le {{ "now"|date("d/m/Y") }}<br>
+            (Signature et Cachet)
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'pdf/layout.html.twig' %}
+
+{% block title %}Contrat de Location-Vente - {{ contract.reference }}{% endblock %}
+
+{% block body %}
+    <div class="title">Contrat de Location-Vente</div>
+    
+    <div class="section-title">Informations sur le Contrat</div>
+    <table>
+        <tr><th>Référence</th><td>{{ contract.reference }}</td></tr>
+        <tr><th>Date d'effet</th><td>{{ contract.startDate|date('d/m/Y') }}</td></tr>
+        <tr><th>Durée</th><td>{{ contract.durationInMonths }} mois</td></tr>
+        <tr><th>Échéance finale</th><td>{{ contract.endDate|date('d/m/Y') }}</td></tr>
+        <tr><th>Fréquence de paiement</th><td>{{ contract.paymentFrequency }}</td></tr>
+    </table>
+
+    <div class="section-title">Informations sur le Client</div>
+    <table>
+        <tr><th>Nom complet</th><td>{{ contract.client.lastName }} {{ contract.client.firstName }}</td></tr>
+        <tr><th>Téléphone</th><td>{{ contract.client.phone }}</td></tr>
+        <tr><th>Adresse</th><td>{{ contract.client.address }}, {{ contract.client.city }}</td></tr>
+    </table>
+
+    <div class="section-title">Véhicule Désigné</div>
+    {% if contract.vehicle %}
+        <table>
+            <tr><th>Marque / Modèle</th><td>{{ contract.vehicle.brand.libelle }} {{ contract.vehicle.vehicleModel.libelle }}</td></tr>
+            <tr><th>Immatriculation</th><td>{{ contract.vehicle.immatriculation }}</td></tr>
+            <tr><th>Numéro de Châssis</th><td>{{ contract.vehicle.chassisNumber }}</td></tr>
+        </table>
+    {% else %}
+        <p>Plusieurs véhicules assignés ou demande en cours.</p>
+    {% endif %}
+
+    <div class="section-title">Conditions Financières</div>
+    <table>
+        <tr><th>Taux Journalier</th><td class="amount">{{ contract.dailyRate|number_format(0, ',', ' ') }} FCFA</td></tr>
+        <tr><th>Caution</th><td class="amount">{{ contract.caution|number_format(0, ',', ' ') }} FCFA</td></tr>
+        <tr><th>Frais de Dossier</th><td class="amount">{{ contract.fraisDossier|number_format(0, ',', ' ') }} FCFA</td></tr>
+        <tr><th>MONTANT TOTAL DU CONTRAT</th><td class="amount">{{ contract.totalAmount|number_format(0, ',', ' ') }} FCFA</td></tr>
+    </table>
+
+    <div class="section-title">Signatures</div>
+    <div class="signature-box">
+        <div class="signature-item">
+            <strong>Pour GBATCAR</strong><br>
+            (Signature et Cachet)
+        </div>
+        <div class="signature-item">
+            <strong>Pour le Client</strong><br>
+            Lu et approuvé
+        </div>
+    </div>
+{% endblock %}

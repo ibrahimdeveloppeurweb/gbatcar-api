@@ -1,0 +1,85 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+<table class="es-content" cellspacing="0" cellpadding="0" align="center">
+    <tbody>
+        <tr>
+            <td class="esd-stripe" align="center">
+                <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                    <tbody>
+                        <tr>
+                            <td class="esd-structure es-p20t es-p35r es-p35l" align="left">
+                                <table width="100%" cellspacing="0" cellpadding="0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                <table width="100%" cellspacing="0" cellpadding="0">
+                                                    <tbody>
+                                                        <tr>
+                                                            {{ include('shared/mail/_logo.html.twig') }}
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="esd-block-text" align="center">
+                                                                <h2 style="font-size: 20px;">Facture disponible — {{ client is defined ? client.civilite ~ ' ' ~ client.lastName : 'Cher(e) client(e)' }}<br></h2>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="esd-block-text es-p15t es-p10b" align="center">
+                                                                <p style="font-size: 16px; color: #777777;"><br></p>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" align="left">
+                                <table width="100%" cellspacing="0" cellpadding="0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                <table width="100%" cellspacing="0" cellpadding="0">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td class="esd-block-text es-p20t" align="center">
+                                                                <p style="font-size: 16px; color: #777777;">
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Une nouvelle facture relative à votre contrat de location-vente GBATCAR est désormais disponible dans votre espace client.</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;">Nous vous recommandons de la conserver pour votre comptabilité personnelle.</p>
+                                                                    ------------------------------------------
+                                                                    {% if contract is defined %}
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Contrat : </span> {{ contract.reference }}</p>
+                                                                    {% endif %}
+                                                                    {% if facture is defined %}
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Référence Facture : </span> {{ facture.reference }}</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Montant : </span> {{ facture.amount|number_format(0, ',', ' ') }} FCFA</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Date : </span> {{ facture.date|date("d/m/Y") }}</p>
+                                                                    {% endif %}
+                                                                    ------------------------------------------
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Connectez-vous à votre espace client pour télécharger votre facture.</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Merci pour votre confiance.</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Cordialement,</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">L'équipe GBATCAR</p>
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
+{% endblock %}
+
+{% block content %}{% endblock %}

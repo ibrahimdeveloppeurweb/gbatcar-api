@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+{% apply inline_css %}
+<html>
+	<head lang="en">
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+		<meta http-equiv="x-ua-compatible" content="ie=edge">
+		<title>
+			.:: ZENAPI |
+			{% block title %}
+				Saisir un titre
+			{% endblock %}
+			::.
+		</title>
+		{% if setting is defined and setting.photo is defined and setting.photo %}
+			<link rel="shortcut icon" type="image/x-icon" href="{{ setting.photoSrc }}">
+		{% endif %}
+		<style>
+			type="text/css"/* DEBUT BLOCK DE DEUX PARTIES  */
+			.box {
+				height: 280px;
+			}
+			.box-auto {
+				height: auto;
+			}
+			.leftbox {
+				float: left;
+				width: 50%;
+			}
+			.rightbox {
+				float: right;
+				width: 50%;
+			}
+			/* FIN BLOCK DE DEUX PARTIES  */
+
+			/** Define the margins of your page **/
+			@page {
+				margin: 35px 15px 0 2px !important;
+				/** margin: 100px 25px; **/
+				/** text-align: center !important; **/
+				text-justify: inter-word
+			}
+			.imprimer-text {
+				text-align: right;
+				font-size: xx-small;
+				font-weight: lighter;
+			}
+			header {
+				position: fixed;
+				top: -20px;
+				left: 0;
+				right: 0;
+				height: 40px;
+
+				/** Extra personal styles **/
+				color: black;
+				text-align: center;
+				line-height: 35px;
+			}
+			body {
+				/** background: white;              
+                background-repeat: repeat-y;
+                width: 100%;
+                display: flex;
+                page-break-after: always; **/
+				font-family: sans-serif;
+				/* margin-top: 125px; */
+				margin-top: 110px;
+			}
+			body:last-child {
+				page-break-after: avoid;
+			}
+			@media(orientation: landscape) {
+				body {
+					flex-direction: row;
+				}
+			}
+			footer {
+				position: fixed;
+				bottom: 10px;
+				left: 0;
+				right: 0;
+				height: 80px;
+				color: white;
+				text-align: center;
+				line-height: 35px;
+			}
+			main {
+				;
+				/* position: fixed; */
+				/* top: 80px; */
+                margin-bottom: 20px;
+			}
+			
+
+			/**  footer {
+                position: fixed; 
+                margin-top: 45px; 
+                bottom: 0cm; 
+                left: 0cm; 
+                right: 0cm;
+                height: 2cm;
+            } **/
+
+			.solde {
+				font-size: 15px;
+				color: red;
+				text-align: right;
+				text-transform: uppercase;
+				font-style: italic;
+			}
+			.montant-card {
+				text-align: right;
+				border: 1px solid #666;
+				background-color: #cfcfcf;
+				border-bottom: 3px solid #000;
+				padding: 10px;
+			}
+			.p-1 {
+				padding: 10px;
+			}
+			.badge {
+				border-radius: 10px;
+				padding: 10px
+			}
+			.badge-success {
+				background-color: #06d755
+			}
+			.flex {
+				display: flex;
+				justify-content: space-between !important;
+				align-items: center;
+			}
+			.d-flex {
+				display: flex;
+			}
+			.card {
+				border: 1px solid #000;
+				padding: 15px;
+				border-radius: 1px;
+				width: auto;
+			}
+			.card-round {
+				border: 1px solid #000;
+				padding: 20px;
+				width: 90px;
+				border-radius: 4px;
+				margin: 2px;
+			}
+			.round {
+				border-radius: 4px;
+			}
+			.border {
+				border: 1px solid #000;
+			}
+			.p-1 {
+				padding: 10px;
+			}
+			.rounded {
+				border-radius: 10px;
+			}
+			.red {
+				color: red;
+			}
+			/** Define the footer rules **/
+			#watermark {
+				position: fixed;
+				text-align: center;
+				right: 30%;
+				left: 30%;
+				bottom: 0;
+				top: 25%;
+				height: 350px;
+				opacity: .1;
+				filter: gray !important;
+				-webkit-filter: grayscale(100%) !important;
+				filter: grayscale(100%) !important;
+			}
+			.page-break {
+				page-break-before: always;
+			}
+			.underline {
+				text-decoration: underline;
+			}
+			.uppercase {
+				text-transform: uppercase;
+			}
+			.italic {
+				font-style: italic
+			}
+			.bg-success {
+				background: #90eb50;
+			}
+			.bg-danger {
+				background: #eb5454;
+			}
+			.td-w35 {
+				width: 35px;
+			}
+			.td-w100 {
+				width: 100px;
+			}
+			.bold {
+				font-weight: bold;
+			}
+			.fs-10 {
+				font-size: 10px;
+			}
+			.fs-12 {
+				font-size: 12px;
+			}
+			.fs-14 {
+				font-size: 14px;
+			}
+			.fs-20 {
+				font-size: 20px;
+			}
+			.left {
+				text-align: left;
+				padding-left: 3px;
+			}
+			.right {
+				text-align: right;
+				padding-right: 3px;
+			}
+			.center {
+				text-align: center;
+				margin: auto;
+			}
+			.bold {
+				font-weight: bold;
+			}
+			.flex {
+				display: inline;
+				float: left;
+				margin-right: 300px;
+			}
+			.bottom {
+				margin-bottom: 15px;
+			}
+			.inter-ligne-big {
+				margin-bottom: 150px;
+			}
+			.right-align {
+				text-align: right;
+				padding-right: 5px;
+			}
+			.no-border {
+				border: none;
+			}
+			@import url(https://fonts.googleapis.com/css?family=Roboto:100,300,400,900,700,500,300,100);
+			* {
+				margin: 0;
+				box-sizing: border-box;
+			}
+			#dossier {
+				font-size: 10px;
+			}
+			::selection {
+				background: #f31544;
+				color: #FFF;
+			}
+			::moz-selection {
+				background: #f31544;
+				color: #FFF;
+			}
+			h1 {
+				font-size: 1.5em;
+				color: #222;
+			}
+			.maj {
+				text-transform: uppercase;
+			}
+			.lettre {
+				margin-top: 50px;
+				margin-bottom: 40px;
+			}
+			h2 {
+				font-size: 0.9em;
+			}
+			.centrer {
+				text-align: center;
+				font-size: 0.9em;
+				font-weight: bold;
+			}
+			h3 {
+				font-size: 1.2em;
+				font-weight: 300;
+				line-height: 2em;
+			}
+			p {
+				font-size: 0.9em;
+				color: #666;
+				line-height: 1.5em;
+			}
+			.tete {
+				top: 20px;
+			}
+			.titre {
+				font-size: 1em;
+				color: #ff0000;
+				line-height: 1.2em;
+			}
+			[id*='invoice-'] {
+				/* Targets all id with 'col-' */
+				padding: 30px;
+			}
+			#invoice-top {
+				height: 100px;
+				min-height: 120px;
+			}
+			#invoice-mid {
+				text-align: center;
+			}
+			#invoice-bot {
+				min-height: 250px;
+			}
+			.logo {
+				float: left;
+			}
+			.info {
+				display: block;
+				float: left;
+				margin-left: 8px;
+			}
+			.entete-page {
+				display: block;
+				float: left;
+				margin-left: 10px;
+			}
+			.title {
+				float: right;
+			}
+			.title p {
+				text-align: right;
+			}
+			#project {
+				margin-left: 52%;
+			}
+			table {
+				width: 100%;
+				border-collapse: collapse;
+
+			}
+			/* BORDURE ARRONDI tr */
+
+			table th:first-child {
+				border-top-left-radius: 15px; /* Bordure arrondie côté gauche */
+				/* border-bottom-left-radius: 50px; Bordure arrondie en bas si nécessaire */
+			}
+
+			/* Style pour le dernier th (coin droit arrondi) */
+			table th:last-child {
+				border-top-right-radius: 15px; /*Bordure arrondie côté droit*/
+				/* border-bottom-right-radius: 50px; Bordure arrondie en bas si nécessaire */
+			}
+
+			/* BORDURE ARRONDI td */
+
+			table td:first-child {
+				/* border-top-left-radius: 15px; Bordure arrondie côté gauche */
+				border-bottom-left-radius: 15px; /* Bordure arrondie en bas si nécessaire */
+			}
+
+			/* Style pour le dernier th (coin droit arrondi) */
+			table td:last-child {
+				/* border-top-right-radius: 15px; Bordure arrondie côté droit */
+				border-bottom-right-radius: 15px; /*Bordure arrondie en bas si nécessaire */
+			}
+
+
+			th {
+				height: 25px;
+			}
+			
+			td {
+				padding: 5px 0 5px 15px;
+				border: 0.5px solid #000;
+			}
+			td.left {
+				text-align: left;
+			}
+			.tabletitle {
+				padding: 3px;
+				/* color: #FFF; */
+				background: #bab7b6;
+			}
+			.service {}
+			.item {
+				width: 50%;
+			}
+			.itemtext {
+				font-size: 0.9em;
+				color: black;
+			}
+			.itemtextB {
+				font-size: 0.9em;
+				font-weight: bold;
+				margin-left: 10px;
+				margin-right: 10px;
+			}
+			.effect {
+				position: relative;
+			}
+			.etat {
+				border: 0.5px solid;
+				padding: 5px;
+				font-weight: 900;
+				font-size: 15px;
+				width: 100%;
+				border-radius: 5px;
+				margin-bottom: 10px;
+			}
+			.date {
+				padding: 5px;
+				text-align: right;
+			}
+			.none {
+				border-style: none;
+			}
+		</style>
+	</head>
+
+	<body>
+
+		<header>
+			{# HAUT DE PAGE #}
+			{{ include('shared/printer/client/intervention/_entete.html.twig') }}
+		</header>
+
+		{# BAS DE PAGE #}
+		<footer>
+			{% if setting is defined %}
+				<div id="watermark">
+					<img src="{% if setting.photoSrc %}{{ host ~ '/' ~ setting.photoSrc }}{% elseif setting.agree %}{{host ~ '/' ~ 'uploads/default/agree.png'}}{% endif %}" height="100%" width="100%">
+				</div>
+			{% endif %}
+			{% block footer %}
+				<div id="invoice-bot" style="position: relative; margin-top: 10px;">
+					<div class="box-auto">
+						<div style="border: none; width: 20px; height:20px; float:left; width:5%;">
+							{% if config is defined and config %}
+								{% if qrcode is defined and config.qrcode(qrcode) %}
+									<img style="text-align: left; margin-bottom: 0;" src="{{ config.qrcode(qrcode) }}" height="40" width="40">
+								{% endif %}
+							{% endif %}
+						</div>
+						<div class="right" style="width:94%;">
+							{# <p class="imprimer-text" style="font-size: 8px;"> #}
+							<p class="imprimer-text" style="font-size: 10px;">
+								Imprimé le :
+								{{ "NOW"|format_datetime(pattern="dd MMMM y hh:mm:ss", locale='fr') }}
+								Par :
+								{{ user is defined ? user.libelle : null}}
+							</p>
+							<hr style=""/>
+							{# <p align="center" style="font-size:6px; font-weight:lighter"> #}
+							<p align="center" style="font-size:8px; font-weight:lighter">
+								{{ user is defined and setting is defined and setting ? setting.piedPage : null }}
+							</p>
+						</div>
+					</div>
+				</div>
+			{% endblock %}
+
+		</footer>
+
+		<!-- Wrap the content of your PDF inside a main tag -->
+		<main>
+			{# ENTETE DE PAGE #}
+			<div id="invoice-bot">
+				<div id="invoice-mid" style="margin-top:0px; padding:0px 0px 10px 0px">
+					{% if entete is defined %}
+						<h5 class="tabletitle">
+							{% block entete %}
+								Entete
+							{% endblock %}
+						</h5>
+					{% endif %}
+				</div>
+				{% block body %}{% endblock %}
+			</div>
+		</main>
+
+		{% block script %}{% endblock %}
+	</body>
+</html>
+{% endapply %}

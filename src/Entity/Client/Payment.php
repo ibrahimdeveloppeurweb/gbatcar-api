@@ -151,7 +151,7 @@ class Payment
     /**
      * @Groups({"payment"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return 'Paiement ' . $this->reference;
     }
@@ -159,7 +159,7 @@ class Payment
     /**
      * @Groups({"payment"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return 'Paiement ' . $this->method;
     }
@@ -250,6 +250,14 @@ class Payment
 
     public function getContract(): ?Contract
     {
+        if ($this->contract !== null) {
+            try {
+                $this->contract->getStatus();
+            }
+            catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                return null;
+            }
+        }
         return $this->contract;
     }
 

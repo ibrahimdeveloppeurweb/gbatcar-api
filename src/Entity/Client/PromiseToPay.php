@@ -117,6 +117,14 @@ class PromiseToPay
 
     public function getContract(): ?Contract
     {
+        if ($this->contract !== null) {
+            try {
+                $this->contract->getStatus();
+            }
+            catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                return null;
+            }
+        }
         return $this->contract;
     }
 
@@ -129,7 +137,7 @@ class PromiseToPay
     /**
      * @Groups({"promise"})
      */
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
         return 'Promesse du ' . $this->expectedDate->format('d/m/Y');
     }
@@ -137,7 +145,7 @@ class PromiseToPay
     /**
      * @Groups({"promise"})
      */
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return $this->status . ($this->amount ? ' - ' . $this->amount . ' FCFA' : '');
     }

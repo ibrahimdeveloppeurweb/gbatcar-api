@@ -19,13 +19,15 @@ class MaintenanceManager
     private $vehicleRepository;
     private $maintenanceTypeRepository;
     private $maintenanceProviderRepository;
+    private $clientMailing;
 
     public function __construct(
         EntityManagerInterface $em,
         MaintenanceRepository $maintenanceRepository,
         VehicleRepository $vehicleRepository,
         MaintenanceTypeRepository $maintenanceTypeRepository,
-        MaintenanceProviderRepository $maintenanceProviderRepository
+        MaintenanceProviderRepository $maintenanceProviderRepository,
+        \App\Mailing\ClientMailing $clientMailing
         )
     {
         $this->em = $em;
@@ -33,6 +35,7 @@ class MaintenanceManager
         $this->vehicleRepository = $vehicleRepository;
         $this->maintenanceTypeRepository = $maintenanceTypeRepository;
         $this->maintenanceProviderRepository = $maintenanceProviderRepository;
+        $this->clientMailing = $clientMailing;
     }
 
     public function create(object $data, ?User $user = null): Maintenance
@@ -48,6 +51,9 @@ class MaintenanceManager
 
         $this->em->persist($maintenance);
         $this->em->flush();
+
+        // Notification client
+        $this->clientMailing->maintenance($maintenance);
 
         return $maintenance;
     }

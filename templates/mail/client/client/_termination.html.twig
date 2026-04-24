@@ -1,0 +1,84 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+ <table class="es-content" cellspacing="0" cellpadding="0" align="center">
+        <tbody>
+            <tr>
+                <td class="esd-stripe" align="center">
+                    <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                        <tbody>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+							                                    {{ include('shared/mail/_logo.html.twig') }}
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text" align="center">
+                                                                    <h2 style="font-size: 20px; color: #2e7d32;">Félicitations - Fin de Contrat<br></h2>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p15t es-p10b" align="center">
+                                                                    <p style="font-size: 16px; color: #555555;">{{ client.civilite ~ ' ' ~ client.lastName }}, vous êtes désormais propriétaire !</p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" esd-custom-block-id="7685" align="left">
+                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                    <table width="100%" cellspacing="0" cellpadding="0">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td class="esd-block-text es-p20t" align="center">
+                                                                    <p style="font-size: 16px; color: #555555;">
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;">C'est avec un grand plaisir que nous vous informons que votre contrat de location-vente est arrivé à son terme avec succès.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold; color: #2e7d32;">Toutes vos traites ayant été soldées, vous êtes désormais le plein propriétaire de votre véhicule.</p>
+                                                                        
+                                                                        <p style="margin: 20px 0 10px; padding: 3px; text-align: left; font-weight: bold">Récapitulatif :</p>
+                                                                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #2e7d32;">
+                                                                            <p style="margin: 5px 0;"><span style="font-weight: bold;">Référence Contrat : </span> {{ contract.reference }} </p>
+                                                                            <p style="margin: 5px 0;"><span style="font-weight: bold;">Véhicule(s) : </span> {{ contract.vehicleSummary }} </p>
+                                                                            <p style="margin: 5px 0;"><span style="font-weight: bold;">Statut : </span> SOLDÉ / TERMINÉ </p>
+                                                                        </div>
+
+                                                                        <p style="margin: 20px 0 10px; padding: 3px; text-align: left;">Nous vous invitons à passer à notre agence pour récupérer les documents originaux de propriété et finaliser les dernières formalités de mutation.</p>
+                                                                        <p style="margin: 10px 0; padding: 3px; text-align: left;">Nous vous remercions pour la confiance que vous avez témoignée à GBATCAR tout au long de ce contrat.</p>
+                                                                        
+                                                                        <p style="margin: 20px 0 0; padding: 3px; text-align: left; font-weight: bold">Félicitations encore !</p>
+                                                                        <p style="margin: 5px 0; padding: 3px; text-align: left;">L'équipe GBATCAR</p>
+                                                                    </p>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block content %}{% endblock %}

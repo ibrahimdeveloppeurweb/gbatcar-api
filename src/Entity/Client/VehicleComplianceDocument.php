@@ -208,12 +208,12 @@ class VehicleComplianceDocument
         return $this;
     }
 
-    public function getSearchableTitle(): string
+    public function getTitle(): string
     {
         return $this->type . ' - ' . ($this->startDate ? $this->startDate->format('d/m/Y') : '');
     }
 
-    public function getSearchableDetail(): string
+    public function getDetail(): string
     {
         return $this->status . ' - ' . $this->renewalCost . ' FCFA';
     }

@@ -16,13 +16,17 @@ class ContractManager
     private $clientRepository;
     private $vehicleRepository;
     private $paymentManager;
+    private $clientMailing;
+    private $userManager;
 
     public function __construct(
         EntityManagerInterface $em,
         ContractRepository $contractRepository,
         ClientRepository $clientRepository,
         VehicleRepository $vehicleRepository,
-        PaymentManager $paymentManager
+        PaymentManager $paymentManager,
+        \App\Mailing\ClientMailing $clientMailing,
+        \App\Manager\Admin\UserManager $userManager
         )
     {
         $this->em = $em;
@@ -30,6 +34,8 @@ class ContractManager
         $this->clientRepository = $clientRepository;
         $this->vehicleRepository = $vehicleRepository;
         $this->paymentManager = $paymentManager;
+        $this->clientMailing = $clientMailing;
+        $this->userManager = $userManager;
     }
 
     public function create(object $data): Contract
@@ -51,8 +57,8 @@ class ContractManager
             throw new \Exception("Contract not found");
         }
 
-        if ($contract->getStatus() === 'VALIDÉ') {
-            throw new \Exception("Impossible de modifier un contrat validé.");
+        if (in_array(strtoupper($contract->getStatus()), ['VALIDÉ', 'TERMINÉ', 'ROMPU', 'SOLDÉ', 'RÉSILIÉ'])) {
+            throw new \Exception("Impossible de modifier un contrat dont le statut est " . $contract->getStatus());
         }
 
         return $this->save($contract, $data);
@@ -253,12 +259,22 @@ class ContractManager
 
         $this->em->flush();
 
+        // Auto-create client account
+        $credentials = null;
+        if ($client = $contract->getClient()) {
+            $credentials = $this->userManager->createClientAccount($client);
+        }
+
+        // Notification client
+        $this->clientMailing->contract($contract, $credentials);
+
         return $contract;
     }
 
     public function terminate(Contract $contract): Contract
     {
         $contract->setStatus('TERMINÉ');
+        $contract->setTerminatedAt(new \DateTimeImmutable());
 
         // Normal end of Location-Vente: Vehicle becomes client property
         if ($vehicle = $contract->getVehicle()) {
@@ -276,12 +292,17 @@ class ContractManager
         }
 
         $this->em->flush();
+
+        // Notification client
+        $this->clientMailing->termination($contract);
+
         return $contract;
     }
 
     public function rupture(Contract $contract): Contract
     {
         $contract->setStatus('ROMPU');
+        $contract->setTerminatedAt(new \DateTimeImmutable());
 
         // Breach of contract: Vehicle returns to company stock
         if ($vehicle = $contract->getVehicle()) {
@@ -300,13 +321,17 @@ class ContractManager
         }
 
         $this->em->flush();
+
+        // Notification client
+        $this->clientMailing->rupture($contract);
+
         return $contract;
     }
 
     public function delete(Contract $contract): Contract
     {
-        if ($contract->getStatus() === 'VALIDÉ') {
-            throw new \Exception("Impossible de supprimer un contrat validé.");
+        if (in_array(strtoupper($contract->getStatus()), ['VALIDÉ', 'TERMINÉ', 'ROMPU', 'SOLDÉ', 'RÉSILIÉ'])) {
+            throw new \Exception("Impossible de supprimer un contrat dont le statut est " . $contract->getStatus());
         }
 
         // Release main vehicle
@@ -316,13 +341,14 @@ class ContractManager
             $this->em->persist($vehicle);
         }
 
-        // Release fleet vehicles (from demands)
+        // Release fleet vehicles (from demands) and remove the demands
         foreach ($contract->getVehicleDemands() as $demand) {
             foreach ($demand->getAssignedVehicles() as $v) {
                 $v->setStatut('Disponible');
                 $v->setClient(null);
                 $this->em->persist($v);
             }
+            $this->em->remove($demand);
         }
 
         $contract->setDeletedAt(new \DateTime());

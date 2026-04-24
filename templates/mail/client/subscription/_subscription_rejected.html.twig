@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2 style="color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 10px;">Demande de souscription refusée</h2>
+        
+        <p>Bonjour <strong>{{ subscription.fullName }}</strong>,</p>
+        
+        <p>Suite à l'examen de votre demande de souscription (Réf: <strong>SUB-{{ subscription.uuid | slice(0, 8) | upper }}</strong>) du {{ subscription.createdAt ? subscription.createdAt|date('d/m/Y') : '' }}, nous sommes au regret de vous informer que celle-ci a été <strong>rejetée</strong>.</p>
+        
+        {% if reason %}
+        <div style="background-color: #fcf8e3; padding: 15px; border-left: 4px solid #f0ad4e; margin: 20px 0;">
+            <strong>Motif du refus :</strong><br>
+            {{ reason|nl2br }}
+        </div>
+        {% endif %}
+
+        <p>Si vous estimez qu'il s'agit d'une erreur ou si vous souhaitez fournir de nouvelles pièces justificatives, vous pouvez soumettre une nouvelle demande en vous assurant de bien respecter les conditions requises.</p>
+        
+        <p>Cordialement,<br>
+        <strong>L'équipe GBATCAR</strong></p>
+    </div>
+</body>
+</html>

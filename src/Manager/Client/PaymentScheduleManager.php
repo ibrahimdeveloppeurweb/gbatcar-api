@@ -12,11 +12,13 @@ class PaymentScheduleManager
 {
     private $em;
     private $logger;
+    private $clientMailing;
 
-    public function __construct(EntityManagerInterface $em, LoggerInterface $logger)
+    public function __construct(EntityManagerInterface $em, LoggerInterface $logger, \App\Mailing\ClientMailing $clientMailing)
     {
         $this->em = $em;
         $this->logger = $logger;
+        $this->clientMailing = $clientMailing;
     }
 
     /**
@@ -149,6 +151,9 @@ class PaymentScheduleManager
 
         try {
             $this->em->flush();
+            
+            // Notify client
+            $this->clientMailing->paymentScheduleGenerated($contract);
         }
         catch (\Exception $e) {
             $this->logger->error('Error generating payment schedule: ' . $e->getMessage());
@@ -406,6 +411,9 @@ class PaymentScheduleManager
             }
 
             $this->em->flush();
+            
+            // Notify client about prolongation
+            $this->clientMailing->prolongation($contract, $days);
         }
 
         return $count;

@@ -174,7 +174,7 @@ class Maintenance
     /**
      * @Groups({"maintenance"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return 'Intervention ' . $this->reference;
     }
@@ -182,7 +182,7 @@ class Maintenance
     /**
      * @Groups({"maintenance"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return $this->type;
     }
@@ -369,6 +369,14 @@ class Maintenance
 
     public function getContract(): ?Contract
     {
+        if ($this->contract !== null) {
+            try {
+                $this->contract->getStatus();
+            }
+            catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                return null;
+            }
+        }
         return $this->contract;
     }
 

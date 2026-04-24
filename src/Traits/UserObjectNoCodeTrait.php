@@ -12,21 +12,21 @@ trait UserObjectNoCodeTrait
     /**
      * @var UuidInterface
      * @ORM\Column(type="uuid", length=255, unique=true)
-     * @Groups({"user", "admin", "setting", "path", "role", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert", "penalty"})
+     * @Groups({"user", "admin", "setting", "path", "role", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert", "penalty", "subscription"})
      */
     private $uuid;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="create")
-     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert", "penalty"})
+     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "alert", "penalty", "subscription"})
      */
     private $createdAt;
 
     /**
      * @ORM\Column(type="datetime", nullable=true)
      * @Gedmo\Timestampable(on="update")
-     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "penalty"})
+     * @Groups({"user", "admin", "setting", "vehicle", "compliance", "client", "contract", "payment", "maintenance", "penalty", "subscription"})
      */
     private $updatedAt;
 

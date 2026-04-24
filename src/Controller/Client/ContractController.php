@@ -226,7 +226,14 @@ class ContractController extends AbstractController
      */
     public function generatePdf($uuid)
     {
-    // To be implemented
+        $contract = $this->contractRepository->findOneByUuid($uuid);
+        if (!$contract) {
+            return $this->json(['message' => 'Contrat introuvable'], 404);
+        }
+
+        return $this->render('pdf/contract_pdf.html.twig', [
+            'contract' => $contract
+        ]);
     }
 
     /**

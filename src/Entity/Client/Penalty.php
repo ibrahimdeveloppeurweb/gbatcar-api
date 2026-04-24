@@ -151,7 +151,7 @@ class Penalty
     /**
      * @Groups({"penalty"})
      */
-    function getSearchableTitle(): string
+    function getTitle(): string
     {
         return 'Pénalité ' . $this->reference;
     }
@@ -159,7 +159,7 @@ class Penalty
     /**
      * @Groups({"penalty"})
      */
-    function getSearchableDetail(): string
+    function getDetail(): string
     {
         return 'Montant : ' . $this->amount . ' FCFA';
     }
@@ -250,6 +250,14 @@ class Penalty
 
     public function getContract(): ?Contract
     {
+        if ($this->contract !== null) {
+            try {
+                $this->contract->getStatus();
+            }
+            catch (\Doctrine\ORM\EntityNotFoundException $e) {
+                return null;
+            }
+        }
         return $this->contract;
     }
 

@@ -1,0 +1,84 @@
+{% extends "shared/mail/layout.html.twig" %}
+
+{% block body %}
+<table class="es-content" cellspacing="0" cellpadding="0" align="center">
+    <tbody>
+        <tr>
+            <td class="esd-stripe" align="center">
+                <table class="es-content-body" width="765" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
+                    <tbody>
+                        <tr>
+                            <td class="esd-structure es-p20t es-p35r es-p35l" align="left">
+                                <table width="100%" cellspacing="0" cellpadding="0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                <table width="100%" cellspacing="0" cellpadding="0">
+                                                    <tbody>
+                                                        <tr>
+                                                            {{ include('shared/mail/_logo.html.twig') }}
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="esd-block-text" align="center">
+                                                                <h2 style="font-size: 20px;">État des Lieux du Véhicule — {{ client is defined ? client.civilite ~ ' ' ~ client.lastName : 'Cher(e) client(e)' }}<br></h2>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="esd-block-text es-p15t es-p10b" align="center">
+                                                                <p style="font-size: 16px; color: #777777;"><br></p>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="esd-structure es-p20t es-p40b es-p35r es-p35l" align="left">
+                                <table width="100%" cellspacing="0" cellpadding="0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="esd-container-frame" width="530" valign="top" align="center">
+                                                <table width="100%" cellspacing="0" cellpadding="0">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td class="esd-block-text es-p20t" align="center">
+                                                                <p style="font-size: 16px; color: #777777;">
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Nous vous informons que le document d'état des lieux de votre véhicule a été validé et est disponible dans votre dossier numérique.</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Veuillez vérifier les informations enregistrées :</p>
+                                                                    ------------------------------------------
+                                                                    {% if contract is defined %}
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Contrat : </span> {{ contract.reference }}</p>
+                                                                    {% endif %}
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Véhicule(s) : </span> {{ contract.vehicleSummary }}</p>
+                                                                    {% if inventory is defined %}
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left;"><span style="font-weight: bold;">Date de l'état des lieux : </span> {{ inventory.createdAt|date("d/m/Y") }}</p>
+                                                                    {% endif %}
+                                                                    ------------------------------------------
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Ce document est essentiel, il consigne l'état du véhicule lors de sa mise à disposition ou de son retour.</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Bonne route avec GBATCAR !</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Cordialement,</p>
+                                                                    <p style="margin: 10px 0; padding: 3px; text-align: left; font-weight: bold">Le Service Logistique GBATCAR</p>
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
+{% endblock %}
+
+{% block content %}{% endblock %}
