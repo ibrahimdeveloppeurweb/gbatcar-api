@@ -20,8 +20,7 @@ class ClientManager
         ClientRepository $clientRepository,
         KernelInterface $kernel,
         \App\Mailing\ClientMailing $clientMailing
-        )
-    {
+    ) {
         $this->em = $em;
         $this->clientRepository = $clientRepository;
         $this->uploadDir = $kernel->getProjectDir() . '/public/uploads/clients/';
@@ -41,7 +40,7 @@ class ClientManager
 
         return $client;
     }
-
+    ///GGGYTTTTTT
     public function update(string $uuid, object $data, Request $request): Client
     {
         $client = $this->clientRepository->findOneBy(['uuid' => $uuid]);
@@ -168,7 +167,7 @@ class ClientManager
         if (isset($data->maritalStatus))
             $client->setMaritalStatus($data->maritalStatus);
         if (isset($data->childrenCount))
-            $client->setChildrenCount((int)$data->childrenCount);
+            $client->setChildrenCount((int) $data->childrenCount);
         if (isset($data->phone))
             $client->setPhone($data->phone);
         if (isset($data->email))
@@ -198,7 +197,7 @@ class ClientManager
         if (isset($data->discoveryChannel))
             $client->setDiscoveryChannel($data->discoveryChannel);
         if (isset($data->drivingExperienceYears))
-            $client->setDrivingExperienceYears((int)$data->drivingExperienceYears);
+            $client->setDrivingExperienceYears((int) $data->drivingExperienceYears);
         if (isset($data->previousCreditExperience))
             $client->setPreviousCreditExperience($data->previousCreditExperience);
         if (isset($data->repaymentSource))
