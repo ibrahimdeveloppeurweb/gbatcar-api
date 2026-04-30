@@ -10,6 +10,8 @@ use App\Repository\Client\VehicleRepository;
 use App\Repository\Client\ClientRepository;
 use App\Repository\Client\ContractRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Repository\Admin\UserRepository;
+use App\Services\FirebaseNotificationService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\KernelInterface;
 
@@ -20,6 +22,9 @@ class PenaltyManager
     private $vehicleRepository;
     private $clientRepository;
     private $contractRepository;
+    private $userRepository;
+    private $firebaseNotification;
+    private $clientMailing;
     private $uploadDir;
 
     public function __construct(
@@ -28,7 +33,10 @@ class PenaltyManager
         VehicleRepository $vehicleRepository,
         ClientRepository $clientRepository,
         ContractRepository $contractRepository,
-        KernelInterface $kernel
+        KernelInterface $kernel,
+        UserRepository $userRepository,
+        FirebaseNotificationService $firebaseNotification,
+        \App\Mailing\ClientMailing $clientMailing
         )
     {
         $this->em = $em;
@@ -36,6 +44,9 @@ class PenaltyManager
         $this->vehicleRepository = $vehicleRepository;
         $this->clientRepository = $clientRepository;
         $this->contractRepository = $contractRepository;
+        $this->userRepository = $userRepository;
+        $this->firebaseNotification = $firebaseNotification;
+        $this->clientMailing = $clientMailing;
         $this->uploadDir = $kernel->getProjectDir() . '/public/uploads/compliance/penalties/';
     }
 
@@ -47,6 +58,27 @@ class PenaltyManager
 
         $this->em->persist($penalty);
         $this->em->flush();
+
+        // Notification Push
+        if ($client = $penalty->getClient()) {
+            $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+            if ($user && $user->getFcmToken()) {
+                $settings = $this->firebaseNotification->getSettings();
+                if ($settings) {
+                    $template = "Une pénalité de {{amount}} FCFA a été générée pour votre contrat. Motif : {{reason}}";
+                    $message = $this->firebaseNotification->replaceVariables($template, [
+                        'client_name' => $client->getLibelle(),
+                        'amount' => number_format($penalty->getAmount(), 0, ',', ' '),
+                        'reason' => $penalty->getReason(),
+                        'due_date' => $penalty->getDueDate() ? $penalty->getDueDate()->format('d/m/Y') : ''
+                    ]);
+                    $this->firebaseNotification->sendNotification($user, 'Nouvelle Pénalité ⚠️', $message, ['type' => 'penalty_created']);
+                }
+            }
+        }
+
+        // Notification Email
+        $this->clientMailing->penalty($penalty);
 
         return $penalty;
     }
@@ -131,6 +163,34 @@ class PenaltyManager
 
         if ($flush && !empty($penaltiesCreated)) {
             $this->em->flush();
+
+            // Notification Push (Synthèse pour le client)
+            if ($client = $contract->getClient()) {
+                $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+                if ($user && $user->getFcmToken()) {
+                    $count = count($penaltiesCreated);
+                    $totalAmount = 0;
+                    foreach ($penaltiesCreated as $p) {
+                        $totalAmount += $p->getAmount();
+                    }
+
+                    $message = sprintf("Attention %s, vous avez %d échéance(s) en retard. Le montant total des pénalités est de %s FCFA. Merci de régulariser au plus vite.",
+                        $client->getLibelle(),
+                        $count,
+                        number_format($totalAmount, 0, ',', ' ')
+                    );
+
+                    $this->firebaseNotification->sendNotification($user, 'Retard de Paiement ⚠️', $message, [
+                        'type' => 'penalty_summary',
+                        'contract_reference' => $contract->getReference()
+                    ]);
+                }
+            }
+
+            // Notification Email (individual or just the first one if too many, but here we follow standard)
+            foreach ($penaltiesCreated as $p) {
+                $this->clientMailing->penalty($p);
+            }
         }
 
         return $penaltiesCreated;

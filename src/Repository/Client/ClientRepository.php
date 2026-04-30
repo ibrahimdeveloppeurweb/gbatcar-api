@@ -59,7 +59,7 @@ class ClientRepository extends ServiceEntityRepository
 
         if (!empty($filters['search'])) {
             $search = '%' . mb_strtolower($filters['search']) . '%';
-            $qb->andWhere('LOWER(c.firstName) LIKE :search OR LOWER(c.lastName) LIKE :search OR LOWER(c.phone) LIKE :search OR LOWER(c.email) LIKE :search OR LOWER(c.idNumber) LIKE :search OR LOWER(c.uuid) LIKE :search')
+            $qb->andWhere('LOWER(c.firstName) LIKE :search OR LOWER(c.lastName) LIKE :search OR LOWER(c.phone) LIKE :search OR LOWER(c.email) LIKE :search OR LOWER(c.idNumber) LIKE :search OR LOWER(c.uuid) LIKE :search OR LOWER(c.companyName) LIKE :search OR LOWER(c.managerName) LIKE :search')
                 ->setParameter('search', $search);
         }
 
@@ -322,8 +322,11 @@ class ClientRepository extends ServiceEntityRepository
             $v = $nc->getVehicles()->first();
             $newClients[] = [
                 'uuid' => $nc->getUuid(),
+                'type' => $nc->getType(),
                 'firstName' => $nc->getFirstName(),
                 'lastName' => $nc->getLastName(),
+                'companyName' => $nc->getCompanyName(),
+                'managerName' => $nc->getManagerName(),
                 'phone' => $nc->getPhone(),
                 'createdAt' => $nc->getCreatedAt() ? $nc->getCreatedAt()->format('Y-m-d H:i:s') : null,
                 'status' => $nc->getStatus(),

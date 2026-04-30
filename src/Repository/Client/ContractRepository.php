@@ -97,22 +97,12 @@ class ContractRepository extends ServiceEntityRepository
 
         if (isset($filters['progressMin']) || isset($filters['progressMax'])) {
             if (isset($filters['progressMin'])) {
-                $subMin = "SELECT SUM(p_min.amount) FROM App\Entity\Client\Payment p_min " .
-                    "WHERE p_min.contract = c AND p_min.deletedAt IS NULL " .
-                    "AND (p_min.status IN ('VALIDÉ', 'VALIDATED', 'VALIDé') OR LOWER(p_min.status) IN ('validé', 'validated')) " .
-                    "AND p_min.type NOT IN ('RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')";
-
-                $qb->andWhere("( (c.totalAmount * :progressMin / 100) + COALESCE(c.fraisDossier, 0) ) <= ($subMin)")
+                $qb->andWhere('c.progressPercentage >= :progressMin')
                     ->setParameter('progressMin', $filters['progressMin']);
             }
 
             if (isset($filters['progressMax'])) {
-                $subMax = "SELECT SUM(p_max.amount) FROM App\Entity\Client\Payment p_max " .
-                    "WHERE p_max.contract = c AND p_max.deletedAt IS NULL " .
-                    "AND (p_max.status IN ('VALIDÉ', 'VALIDATED', 'VALIDé') OR LOWER(p_max.status) IN ('validé', 'validated')) " .
-                    "AND p_max.type NOT IN ('RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ')";
-
-                $qb->andWhere("( (c.totalAmount * :progressMax / 100) + COALESCE(c.fraisDossier, 0) ) >= ($subMax)")
+                $qb->andWhere('c.progressPercentage <= :progressMax')
                     ->setParameter('progressMax', $filters['progressMax']);
             }
         }

@@ -2,6 +2,8 @@
 
 namespace App\Manager\Client;
 
+use App\Repository\Admin\UserRepository;
+use App\Services\FirebaseNotificationService;
 use App\Entity\Client\Maintenance;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\Client\MaintenanceRepository;
@@ -20,6 +22,8 @@ class MaintenanceManager
     private $maintenanceTypeRepository;
     private $maintenanceProviderRepository;
     private $clientMailing;
+    private $userRepository;
+    private $firebaseNotification;
 
     public function __construct(
         EntityManagerInterface $em,
@@ -27,7 +31,9 @@ class MaintenanceManager
         VehicleRepository $vehicleRepository,
         MaintenanceTypeRepository $maintenanceTypeRepository,
         MaintenanceProviderRepository $maintenanceProviderRepository,
-        \App\Mailing\ClientMailing $clientMailing
+        \App\Mailing\ClientMailing $clientMailing,
+        UserRepository $userRepository,
+        FirebaseNotificationService $firebaseNotification
         )
     {
         $this->em = $em;
@@ -36,6 +42,8 @@ class MaintenanceManager
         $this->maintenanceTypeRepository = $maintenanceTypeRepository;
         $this->maintenanceProviderRepository = $maintenanceProviderRepository;
         $this->clientMailing = $clientMailing;
+        $this->userRepository = $userRepository;
+        $this->firebaseNotification = $firebaseNotification;
     }
 
     public function create(object $data, ?User $user = null): Maintenance
@@ -54,6 +62,26 @@ class MaintenanceManager
 
         // Notification client
         $this->clientMailing->maintenance($maintenance);
+
+        // Notification Push
+        if ($client = $maintenance->getClient()) {
+            $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+            if ($user && $user->getFcmToken()) {
+                $settings = $this->firebaseNotification->getSettings();
+                if ($settings) {
+                    $template = $settings->getSmsTemplateMaintenance() ?: "Bonjour {{client_name}}. Notez que le véhicule {{vehicle_plate}} a un entretien prévu.";
+                    $message = $this->firebaseNotification->replaceVariables($template, [
+                        'client_name' => $client->getLibelle(),
+                        'vehicle_plate' => $maintenance->getVehicle() ? $maintenance->getVehicle()->getImmatriculation() : 'N/A',
+                        'type' => $maintenance->getType()
+                    ]);
+                    $this->firebaseNotification->sendNotification($user, 'Entretien Véhicule 🔧', $message, [
+                        'type' => 'maintenance_planned',
+                        'maintenance_reference' => $maintenance->getReference()
+                    ]);
+                }
+            }
+        }
 
         return $maintenance;
     }

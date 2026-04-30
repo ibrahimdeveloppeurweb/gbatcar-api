@@ -6,6 +6,8 @@ use App\Entity\Client\Contract;
 use App\Repository\Client\ClientRepository;
 use App\Repository\Client\ContractRepository;
 use App\Repository\Client\VehicleRepository;
+use App\Repository\Admin\UserRepository;
+use App\Services\FirebaseNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use DateTimeImmutable;
 
@@ -18,6 +20,8 @@ class ContractManager
     private $paymentManager;
     private $clientMailing;
     private $userManager;
+    private $userRepository;
+    private $firebaseNotification;
 
     public function __construct(
         EntityManagerInterface $em,
@@ -26,7 +30,9 @@ class ContractManager
         VehicleRepository $vehicleRepository,
         PaymentManager $paymentManager,
         \App\Mailing\ClientMailing $clientMailing,
-        \App\Manager\Admin\UserManager $userManager
+        \App\Manager\Admin\UserManager $userManager,
+        UserRepository $userRepository,
+        FirebaseNotificationService $firebaseNotification
         )
     {
         $this->em = $em;
@@ -36,6 +42,8 @@ class ContractManager
         $this->paymentManager = $paymentManager;
         $this->clientMailing = $clientMailing;
         $this->userManager = $userManager;
+        $this->userRepository = $userRepository;
+        $this->firebaseNotification = $firebaseNotification;
     }
 
     public function create(object $data): Contract
@@ -268,6 +276,22 @@ class ContractManager
         // Notification client
         $this->clientMailing->contract($contract, $credentials);
 
+        // Notification Push
+        if ($client = $contract->getClient()) {
+            $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+            if ($user && $user->getFcmToken()) {
+                $settings = $this->firebaseNotification->getSettings();
+                if ($settings) {
+                    $template = $settings->getSmsTemplateWelcome() ?: "Bienvenue chez GbatCar {{client_name}} ! Votre dossier a été validé.";
+                    $message = $this->firebaseNotification->replaceVariables($template, [
+                        'client_name' => $client->getLibelle(),
+                        'dossier_id' => $contract->getReference()
+                    ]);
+                    $this->firebaseNotification->sendNotification($user, 'Dossier Validé 🚗', $message, ['type' => 'contract_validation']);
+                }
+            }
+        }
+
         return $contract;
     }
 
@@ -295,6 +319,14 @@ class ContractManager
 
         // Notification client
         $this->clientMailing->termination($contract);
+
+        // Notification Push
+        if ($client = $contract->getClient()) {
+            $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+            if ($user && $user->getFcmToken()) {
+                $this->firebaseNotification->sendNotification($user, 'Contrat Terminé 🏁', 'Votre contrat est arrivé à son terme. Le véhicule est désormais votre propriété ! Merci de votre confiance.', ['type' => 'contract_terminated']);
+            }
+        }
 
         return $contract;
     }
@@ -324,6 +356,14 @@ class ContractManager
 
         // Notification client
         $this->clientMailing->rupture($contract);
+
+        // Notification Push
+        if ($client = $contract->getClient()) {
+            $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+            if ($user && $user->getFcmToken()) {
+                $this->firebaseNotification->sendNotification($user, 'Contrat Rompu ❌', 'Votre contrat a été interrompu. Merci de prendre contact avec l\'agence pour les modalités de retour.', ['type' => 'contract_rupture']);
+            }
+        }
 
         return $contract;
     }

@@ -83,4 +83,28 @@ class VehicleModelController extends AbstractController
 
         return $this->json($model, 201, [], ['groups' => ["vehicle_model"]]);
     }
+
+    /**
+     * @Route("/{id}/delete", name="delete_vehicle_model", methods={"DELETE"},
+     * options={"description"="Supprimer un modèle de véhicule", "permission"="VEHICLE:MODEL:DELETE"})
+     */
+    public function delete(int $id)
+    {
+        $model = $this->entityManager->getRepository(VehicleModel::class)->find($id);
+
+        if (!$model) {
+            return $this->json(['message' => 'Modèle introuvable.'], 404);
+        }
+
+        // Check if used by any vehicle
+        $vehicle = $this->entityManager->getRepository(\App\Entity\Client\Vehicle::class)->findOneBy(['vehicleModel' => $model]);
+        if ($vehicle) {
+            return $this->json(['message' => 'Impossible de supprimer ce modèle car il est déjà associé à un véhicule.'], 400);
+        }
+
+        $this->entityManager->remove($model);
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'Modèle supprimé avec succès.']);
+    }
 }

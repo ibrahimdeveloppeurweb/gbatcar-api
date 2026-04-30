@@ -288,7 +288,7 @@ class UserManager
         }
 
         $username = $client->getEmail();
-        $password = FonctionUtil::password(5);
+        $password = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT); // Code à 4 chiffres
 
         /** @var User $user */
         $user = $this->userRepository->findOneBy(['username' => $username]);

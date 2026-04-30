@@ -62,4 +62,33 @@ class BrandController extends AbstractController
 
         return $this->json($brand, 201, [], ['groups' => ["brand"]]);
     }
+
+    /**
+     * @Route("/{id}/delete", name="delete_brand", methods={"DELETE"},
+     * options={"description"="Supprimer une marque de véhicule", "permission"="BRAND:DELETE"})
+     */
+    public function delete(int $id)
+    {
+        $brand = $this->entityManager->getRepository(Brand::class)->find($id);
+
+        if (!$brand) {
+            return $this->json(['message' => 'Marque introuvable.'], 404);
+        }
+
+        // Check if used by any model
+        if ($brand->getModels()->count() > 0) {
+            return $this->json(['message' => 'Impossible de supprimer cette marque car elle possède des modèles associés.'], 400);
+        }
+
+        // Check if used by any vehicle
+        $vehicle = $this->entityManager->getRepository(\App\Entity\Client\Vehicle::class)->findOneBy(['brand' => $brand]);
+        if ($vehicle) {
+            return $this->json(['message' => 'Impossible de supprimer cette marque car elle est déjà associée à un véhicule.'], 400);
+        }
+
+        $this->entityManager->remove($brand);
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'Marque supprimée avec succès.']);
+    }
 }

@@ -32,7 +32,8 @@ class SecurityController extends AbstractController
         SecurityManager $securityManager,
         TokenStorageInterface $tokenStorage,
         RefreshTokenRepository $refreshTokenRepository
-    ) {
+        )
+    {
         $this->em = $em;
         $this->securityManager = $securityManager;
         $this->refreshTokenRepository = $refreshTokenRepository;
@@ -50,7 +51,8 @@ class SecurityController extends AbstractController
         try {
             $token = $this->securityManager->checkCredential($request)->getAccessToken();
             $response = (new JsonHelper($token, 'Connexion reussie', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ["file", "photo"]]);
         }
@@ -58,7 +60,7 @@ class SecurityController extends AbstractController
     }
 
 
-   
+
 
     /**
      * @Route("/api/logout", name="logout", methods={"POST"}, 
@@ -70,7 +72,8 @@ class SecurityController extends AbstractController
         try {
             $token = $this->securityManager->logout($content, $request);
             $response = (new JsonHelper($token, 'Déconnexion réussie', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ["file", "photo"]]);
         }
@@ -87,7 +90,8 @@ class SecurityController extends AbstractController
             $data = \json_decode($request->getContent());
             $user = $this->securityManager->forgot($data);
             $response = (new JsonHelper($user, 'Email envoyer avec success', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ["user", "file", "photo"]]);
         }
@@ -127,11 +131,12 @@ class SecurityController extends AbstractController
         $extractor = new AuthorizationHeaderTokenExtractor(
             'Bearer',
             'Authorization'
-        );
+            );
         $token = $extractor->extract($request);
         try {
             $data = $encoder->decode($token);
-        } catch (JWTDecodeFailureException $exception) {
+        }
+        catch (JWTDecodeFailureException $exception) {
             if ($exception->getReason() === 'expired_token') {
                 $data = $exception->getPayload();
             }
@@ -167,7 +172,8 @@ class SecurityController extends AbstractController
             $data = json_decode($request->getContent());
             $user = $this->securityManager->editPassword($data, $user);
             $response = (new JsonHelper($user, 'Votre mot de passe a été modifié avec succès', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ["user", "file", "photo"]]);
         }
@@ -186,7 +192,8 @@ class SecurityController extends AbstractController
             $data = json_decode($request->getContent());
             $user = $this->securityManager->resetPassword($data);
             $response = (new JsonHelper($user, 'Votre mot de passe a été réinitialisé avec succès', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ["user", "file", "photo"]]);
         }
@@ -201,12 +208,44 @@ class SecurityController extends AbstractController
     {
         $response = null;
         try {
-            // $res = $this->securityManager->testSms($request);
-            // $response = (new JsonHelper($res, $res ? 'SMS envoyé avec succès !' :  'SMS non envoyé !', 'success', 200, []))->serialize();
-        } catch (ExceptionApi $e) {
+        // $res = $this->securityManager->testSms($request);
+        // $response = (new JsonHelper($res, $res ? 'SMS envoyé avec succès !' :  'SMS non envoyé !', 'success', 200, []))->serialize();
+        }
+        catch (ExceptionApi $e) {
             $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
             return $this->json($response, $e->getCode(), [], ['groups' => ["file", "photo"]]);
         }
         return $this->json($response);
+    }
+
+    /**
+     * @Route("/api/auth/fcm-token", name="update_fcm_token", methods={"POST"}, 
+     * options={"description"="Mettre à jour le token FCM"})
+     */
+    public function updateFcmToken(Request $request)
+    {
+        try {
+            /** @var User $user */
+            $user = $this->getUser();
+            if (!$user) {
+                throw new ExceptionApi("Utilisateur non connecté", [], 401);
+            }
+
+            $data = json_decode($request->getContent());
+            if (!isset($data->fcmToken)) {
+                throw new ExceptionApi("Token FCM manquant", [], 400);
+            }
+
+            $user->setFcmToken($data->fcmToken);
+            $this->em->persist($user);
+            $this->em->flush();
+
+            $response = (new JsonHelper($user, 'Token FCM mis à jour avec succès', 'success', 200, []))->serialize();
+        }
+        catch (ExceptionApi $e) {
+            $response = (new JsonHelper(null, $e->getMessage(), 'bad_request', $e->getCode(), $e->getErrors()))->serialize();
+            return $this->json($response, $e->getCode(), [], ['groups' => ["user"]]);
+        }
+        return $this->json($response, 200, [], ['groups' => ["user"]]);
     }
 }

@@ -4,6 +4,8 @@ namespace App\Manager\Client;
 
 use App\Entity\Client\Contract;
 use App\Entity\Client\Payment;
+use App\Repository\Admin\UserRepository;
+use App\Services\FirebaseNotificationService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\Client\PaymentRepository;
@@ -15,13 +17,17 @@ class PaymentManager
     private $security;
     private $scheduleManager;
     private $clientMailing;
+    private $userRepository;
+    private $firebaseNotification;
 
     public function __construct(
         EntityManagerInterface $em,
         PaymentRepository $paymentRepository,
         \Symfony\Component\Security\Core\Security $security,
         PaymentScheduleManager $scheduleManager,
-        \App\Mailing\ClientMailing $clientMailing
+        \App\Mailing\ClientMailing $clientMailing,
+        UserRepository $userRepository,
+        FirebaseNotificationService $firebaseNotification
         )
     {
         $this->em = $em;
@@ -29,6 +35,8 @@ class PaymentManager
         $this->security = $security;
         $this->scheduleManager = $scheduleManager;
         $this->clientMailing = $clientMailing;
+        $this->userRepository = $userRepository;
+        $this->firebaseNotification = $firebaseNotification;
     }
 
     /**
@@ -135,6 +143,18 @@ class PaymentManager
 
             // Notification client
             $this->clientMailing->payment($payment);
+
+            // Notification Push
+            if ($client = $payment->getClient()) {
+                $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+                if ($user && $user->getFcmToken()) {
+                    $message = sprintf('Votre paiement de %s FCFA a été enregistré et validé. Merci !', number_format($payment->getAmount(), 0, ',', ' '));
+                    $this->firebaseNotification->sendNotification($user, 'Paiement Validé ✅', $message, [
+                        'type' => 'payment_validated',
+                        'payment_reference' => $payment->getReference()
+                    ]);
+                }
+            }
         }
 
         return $payment;
@@ -265,6 +285,18 @@ class PaymentManager
 
             // Notification client (Payment Receipt sent AFTER penalty update email)
             $this->clientMailing->payment($payment);
+
+            // Notification Push
+            if ($client = $payment->getClient()) {
+                $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+                if ($user && $user->getFcmToken()) {
+                    $message = sprintf('Votre paiement de %s FCFA a été validé avec succès. Merci !', number_format($payment->getAmount(), 0, ',', ' '));
+                    $this->firebaseNotification->sendNotification($user, 'Paiement Validé ✅', $message, [
+                        'type' => 'payment_validated',
+                        'payment_reference' => $payment->getReference()
+                    ]);
+                }
+            }
         }
 
         return $payment;
@@ -288,32 +320,31 @@ class PaymentManager
             return;
         }
 
-        // Re-calculate total paid from all validated payments
-        // We use a query to ensure we get exactly what's in the DB (standardized VALIDÉ status)
-        $payments = $this->paymentRepository->createQueryBuilder('p')
-            ->where('p.contract = :contract')
-            ->andWhere('p.status IN (:statuses)')
-            ->andWhere('p.type NOT IN (:excludedTypes)')
-            ->setParameter('contract', $contract)
-            ->setParameter('statuses', ['VALIDÉ', 'VALIDATED', 'Validé'])
-            ->setParameter('excludedTypes', ['RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ', 'Apport Initial', 'Frais de dossier'])
-            ->getQuery()
-            ->getResult();
-
+        // Match exact logic of Contract::getPaidAmount()
         $totalPaid = 0;
-        foreach ($payments as $p) {
-            $totalPaid += $p->getAmount();
+        $fees = $contract->getFraisDossier() ?: 0;
+
+        foreach ($contract->getPayments() as $payment) {
+            $status = strtoupper($payment->getStatus() ?? '');
+            if (in_array($status, ['VALIDÉ', 'VALIDATED', 'VALIDé'])) {
+                if (!in_array($payment->getType(), ['RÉPARATION_CLIENT', 'FRAIS_AGENCE', 'PÉNALITÉ'])) {
+                    $totalPaid += $payment->getAmount();
+                }
+            }
         }
 
-        // Apply the user's rule: Montant Payé = Sum(Valid Payments) - Frais de dossier
-        $fees = $contract->getFraisDossier() ?: 0;
         $netPaid = max(0, $totalPaid - $fees);
+
+        // Update progress percentage (persisted field for optimized filtering)
+        $totalAmount = $contract->getTotalAmount() ?: 1;
+        $progress = ($netPaid / $totalAmount) * 100;
+        $contract->setProgressPercentage(round($progress, 1));
 
         // $contract->setPaidAmount($netPaid); // Removed because it's a virtual field mode:AGENT_MODE_EXECUTION
 
         // Synchronize with Client cached fields
         if ($client = $contract->getClient()) {
-            $client->setAmountPaid($totalPaid);
+            $client->setAmountPaid($netPaid);
             $client->setTotalAmount($contract->getTotalAmount());
             $client->setCautionAmount($contract->getCaution());
             $client->setPaymentStatus($contract->getPaymentStatus());
@@ -331,6 +362,7 @@ class PaymentManager
 
     /**
      * Allocates a payment of type "PÉNALITÉ" to any outstanding penalties for the contract.
+     * If there's a surplus, it spills over to installments.
      */
     public function handlePenaltyPayment(Payment $payment): void
     {
@@ -377,7 +409,49 @@ class PaymentManager
             $this->em->persist($penalty);
         }
 
-        $this->em->flush();
+        // Spillover surplus to installments by creating a NEW separate payment
+        if ($amountLeft > 0 && $contract) {
+            $spillover = new \App\Entity\Client\Payment();
+            $spillover->setContract($contract);
+            $spillover->setClient($contract->getClient());
+            $spillover->setAmount($amountLeft);
+            $spillover->setDate($payment->getDate());
+            $spillover->setMethod($payment->getMethod() ?: 'Espèces');
+            $spillover->setStatus('VALIDÉ');
+
+            // Reference generation
+            $baseRef = $payment->getReference() ?: ('PAY-' . (new \DateTime())->format('Ymd-His'));
+            $spillover->setReference($baseRef . '-SUR');
+
+            // Determine type from contract frequency
+            $type = ($contract->getPaymentFrequency() === 'Journalier') ? 'Versement Journalier' : 'Mensualité';
+            $spillover->setType($type);
+            $spillover->setObservation("Surplus du paiement de pénalité #" . ($payment->getReference() ?: $payment->getId()));
+
+            // Automatic Attribution to the connected user
+            if ($user = $this->security->getUser()) {
+                $spillover->setRecordedBy($user->getLibelle() ?: $user->getUserIdentifier());
+            }
+            else {
+                $spillover->setRecordedBy($payment->getRecordedBy() ?: 'Système');
+            }
+
+            $this->em->persist($spillover);
+
+            // Adjust original payment amount
+            $payment->setAmount($payment->getAmount() - $amountLeft);
+            $this->em->persist($payment);
+
+            $this->em->flush();
+
+            // Force refresh of schedules and contract balance
+            $this->scheduleManager->refreshScheduleCoverage($contract);
+            $this->updateContractBalance($contract);
+        }
+        else {
+            $this->em->flush();
+            $this->updateContractBalance($contract);
+        }
 
         // Notification client
         if (isset($penalty)) {
@@ -395,5 +469,6 @@ class PaymentManager
             $this->scheduleManager->refreshScheduleCoverage($contract);
         }
         return $payment;
+
     }
 }

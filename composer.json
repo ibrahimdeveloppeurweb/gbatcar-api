@@ -12,6 +12,8 @@
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.19",
         "gedmo/doctrine-extensions": "^3.4",
+        "kreait/firebase-bundle": "^4.0",
+        "kreait/firebase-php": "^6.9",
         "lexik/jwt-authentication-bundle": "^2.13",
         "nelmio/api-doc-bundle": "^4.11",
         "nelmio/cors-bundle": "^2.2",

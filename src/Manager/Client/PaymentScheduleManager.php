@@ -5,6 +5,8 @@ namespace App\Manager\Client;
 use App\Entity\Client\Contract;
 use App\Entity\Client\Payment;
 use App\Entity\Client\PaymentSchedule;
+use App\Repository\Admin\UserRepository;
+use App\Services\FirebaseNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -13,12 +15,22 @@ class PaymentScheduleManager
     private $em;
     private $logger;
     private $clientMailing;
+    private $userRepository;
+    private $firebaseNotification;
 
-    public function __construct(EntityManagerInterface $em, LoggerInterface $logger, \App\Mailing\ClientMailing $clientMailing)
+    public function __construct(
+        EntityManagerInterface $em,
+        LoggerInterface $logger,
+        \App\Mailing\ClientMailing $clientMailing,
+        UserRepository $userRepository,
+        FirebaseNotificationService $firebaseNotification
+        )
     {
         $this->em = $em;
         $this->logger = $logger;
         $this->clientMailing = $clientMailing;
+        $this->userRepository = $userRepository;
+        $this->firebaseNotification = $firebaseNotification;
     }
 
     /**
@@ -151,9 +163,17 @@ class PaymentScheduleManager
 
         try {
             $this->em->flush();
-            
+
             // Notify client
             $this->clientMailing->paymentScheduleGenerated($contract);
+
+            // Push Notification
+            if ($client = $contract->getClient()) {
+                $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+                if ($user && $user->getFcmToken()) {
+                    $this->firebaseNotification->sendNotification($user, 'Nouvel Échéancier 📅', 'Votre planning de paiement a été généré. Vous pouvez le consulter dans l\'application.', ['type' => 'schedule_generated']);
+                }
+            }
         }
         catch (\Exception $e) {
             $this->logger->error('Error generating payment schedule: ' . $e->getMessage());
@@ -229,7 +249,7 @@ class PaymentScheduleManager
         $this->em->flush();
 
         // 2. Load all VALIDATED payments for this contract in chronological order
-        // We EXCLUDE Security Deposits (Apport Initial) and Fees from installment coverage
+        // We EXCLUDE Security Deposits (Apport Initial), Fees and Penalties from installment coverage
         $payments = $this->em->getRepository(Payment::class)->createQueryBuilder('p')
             ->where('p.contract = :contract')
             ->andWhere('p.status IN (:statuses)')
@@ -243,7 +263,13 @@ class PaymentScheduleManager
 
         // 3. Re-apply each payment using the water-filling logic
         foreach ($payments as $payment) {
-            $coveredSchedules = $this->coverWithPayment($contract, $payment->getAmount(), $payment->getDate());
+            $amountForSchedule = $payment->getAmount();
+
+            if ($amountForSchedule <= 0) {
+                continue;
+            }
+
+            $coveredSchedules = $this->coverWithPayment($contract, $amountForSchedule, $payment->getDate());
 
             // 4. Update the payment's period field based on what it actually covered
             if (!empty($coveredSchedules)) {
@@ -411,9 +437,18 @@ class PaymentScheduleManager
             }
 
             $this->em->flush();
-            
+
             // Notify client about prolongation
             $this->clientMailing->prolongation($contract, $days);
+
+            // Push Notification
+            if ($client = $contract->getClient()) {
+                $user = $this->userRepository->findOneBy(['username' => $client->getEmail()]);
+                if ($user && $user->getFcmToken()) {
+                    $message = sprintf('Votre contrat a été prolongé de %d jours. Vos prochaines échéances ont été décalées.', $days);
+                    $this->firebaseNotification->sendNotification($user, 'Contrat Prolongé ⏳', $message, ['type' => 'schedule_shifted']);
+                }
+            }
         }
 
         return $count;

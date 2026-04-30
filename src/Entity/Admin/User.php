@@ -153,6 +153,12 @@ class User implements UserInterface
      */
     private $admin;
 
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"user", "admin"})
+     */
+    private $fcmToken;
+
     public function __construct()
     {
         $this->droits = new ArrayCollection();
@@ -499,5 +505,16 @@ class User implements UserInterface
     public function getIsEnabled(): ?bool
     {
         return $this->isEnabled;
+    }
+
+    public function getFcmToken(): ?string
+    {
+        return $this->fcmToken;
+    }
+
+    public function setFcmToken(?string $fcmToken): self
+    {
+        $this->fcmToken = $fcmToken;
+        return $this;
     }
 }

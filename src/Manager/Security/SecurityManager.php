@@ -76,15 +76,15 @@ class SecurityManager
         }
         if (!isset($body['username']) && !isset($body['password'])) {
             throw new ExceptionApi(
-                "L'email et le mot de passe sont obligatoire.",
-            ['msg' => "L'email et le mot de passe sont obligatoire."],
+                "L'email ou le numéro de téléphone et le mot de passe sont obligatoires.",
+            ['msg' => "L'email ou le numéro de téléphone et le mot de passe sont obligatoires."],
                 Response::HTTP_UNPROCESSABLE_ENTITY
                 );
         }
         if (!isset($body['username'])) {
             throw new ExceptionApi(
-                "L'email est obligatoire",
-            ['msg' => "L'email est obligatoire."],
+                "L'email ou le numéro de téléphone est obligatoire.",
+            ['msg' => "L'email ou le numéro de téléphone est obligatoire."],
                 Response::HTTP_UNPROCESSABLE_ENTITY
                 );
         }
@@ -100,7 +100,9 @@ class SecurityManager
 
         try {
             $user = $this->userRepository->findOneBy(['username' => $username]);
-
+            if (!$user) {
+                $user = $this->userRepository->findOneBy(['telephone' => $username]);
+            }
         }
         catch (NonUniqueResultException $e) {
             $user = null;

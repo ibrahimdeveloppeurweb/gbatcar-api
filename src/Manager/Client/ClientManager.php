@@ -124,6 +124,28 @@ class ClientManager
             $licenseScan->move($this->uploadDir, $filename);
             $client->setLicenseScanUrl('/uploads/clients/' . $filename);
         }
+
+        // Additional Documents
+        $documentMappings = [
+            'casierFile' => 'setCasierUrl',
+            'certifResidenceFile' => 'setCertifResidenceUrl',
+            'bulletinSalaireFile' => 'setBulletinSalaireUrl',
+            'rcFile' => 'setRcUrl',
+            'dfeFile' => 'setDfeUrl',
+            'statutFile' => 'setStatutUrl',
+            'cniGerantFile' => 'setCniGerantUrl',
+            'casierGerantFile' => 'setCasierGerantUrl',
+            'releveBancaireFile' => 'setReleveBancaireUrl'
+        ];
+
+        foreach ($documentMappings as $formField => $setterMethod) {
+            $file = $request->files->get($formField);
+            if ($file && $file->isValid()) {
+                $filename = uniqid() . '_' . str_replace('File', '', $formField) . '_' . $file->getClientOriginalName();
+                $file->move($this->uploadDir, $filename);
+                $client->$setterMethod('/uploads/clients/' . $filename);
+            }
+        }
     }
 
     private function hydrate(Client $client, object $data): void
@@ -189,6 +211,14 @@ class ClientManager
             $client->setIdIssueDate(new \DateTimeImmutable($data->idIssueDate));
         if (isset($data->licenseNumber))
             $client->setLicenseNumber($data->licenseNumber);
+
+        // Enterprise
+        if (isset($data->companyName))
+            $client->setCompanyName($data->companyName);
+        if (isset($data->managerName))
+            $client->setManagerName($data->managerName);
+        if (isset($data->taxAccountNb))
+            $client->setTaxAccountNb($data->taxAccountNb);
 
         if (isset($data->status))
             $client->setStatus($data->status);

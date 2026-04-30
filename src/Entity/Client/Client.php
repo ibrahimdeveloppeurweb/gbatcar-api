@@ -260,6 +260,82 @@ class Client
      */
     private $type;
 
+    // Documents Numériques Additionnels
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $casierUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $certifResidenceUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $bulletinSalaireUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $rcUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $dfeUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $statutUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $cniGerantUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $casierGerantUrl;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $releveBancaireUrl;
+
+    // Informations Entreprise
+
+     /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client", "payment"})
+     */
+    private $companyName;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $managerName;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     * @Groups({"client"})
+     */
+    private $taxAccountNb;
+
     // Agrégats Financiers (Caches)
 
     /**
@@ -1021,6 +1097,150 @@ class Client
         return $this;
     }
 
+    public function getCasierUrl(): ?string
+    {
+        return $this->casierUrl;
+    }
+
+    public function setCasierUrl(?string $casierUrl): self
+    {
+        $this->casierUrl = $casierUrl;
+
+        return $this;
+    }
+
+    public function getCertifResidenceUrl(): ?string
+    {
+        return $this->certifResidenceUrl;
+    }
+
+    public function setCertifResidenceUrl(?string $certifResidenceUrl): self
+    {
+        $this->certifResidenceUrl = $certifResidenceUrl;
+
+        return $this;
+    }
+
+    public function getBulletinSalaireUrl(): ?string
+    {
+        return $this->bulletinSalaireUrl;
+    }
+
+    public function setBulletinSalaireUrl(?string $bulletinSalaireUrl): self
+    {
+        $this->bulletinSalaireUrl = $bulletinSalaireUrl;
+
+        return $this;
+    }
+
+    public function getRcUrl(): ?string
+    {
+        return $this->rcUrl;
+    }
+
+    public function setRcUrl(?string $rcUrl): self
+    {
+        $this->rcUrl = $rcUrl;
+
+        return $this;
+    }
+
+    public function getDfeUrl(): ?string
+    {
+        return $this->dfeUrl;
+    }
+
+    public function setDfeUrl(?string $dfeUrl): self
+    {
+        $this->dfeUrl = $dfeUrl;
+
+        return $this;
+    }
+
+    public function getStatutUrl(): ?string
+    {
+        return $this->statutUrl;
+    }
+
+    public function setStatutUrl(?string $statutUrl): self
+    {
+        $this->statutUrl = $statutUrl;
+
+        return $this;
+    }
+
+    public function getCniGerantUrl(): ?string
+    {
+        return $this->cniGerantUrl;
+    }
+
+    public function setCniGerantUrl(?string $cniGerantUrl): self
+    {
+        $this->cniGerantUrl = $cniGerantUrl;
+
+        return $this;
+    }
+
+    public function getCasierGerantUrl(): ?string
+    {
+        return $this->casierGerantUrl;
+    }
+
+    public function setCasierGerantUrl(?string $casierGerantUrl): self
+    {
+        $this->casierGerantUrl = $casierGerantUrl;
+
+        return $this;
+    }
+
+    public function getReleveBancaireUrl(): ?string
+    {
+        return $this->releveBancaireUrl;
+    }
+
+    public function setReleveBancaireUrl(?string $releveBancaireUrl): self
+    {
+        $this->releveBancaireUrl = $releveBancaireUrl;
+
+        return $this;
+    }
+
+    public function getCompanyName(): ?string
+    {
+        return $this->companyName;
+    }
+
+    public function setCompanyName(?string $companyName): self
+    {
+        $this->companyName = $companyName;
+
+        return $this;
+    }
+
+    public function getManagerName(): ?string
+    {
+        return $this->managerName;
+    }
+
+    public function setManagerName(?string $managerName): self
+    {
+        $this->managerName = $managerName;
+
+        return $this;
+    }
+
+    public function getTaxAccountNb(): ?string
+    {
+        return $this->taxAccountNb;
+    }
+
+    public function setTaxAccountNb(?string $taxAccountNb): self
+    {
+        $this->taxAccountNb = $taxAccountNb;
+
+        return $this;
+    }
+
     public function getValidationDate(): ?\DateTimeImmutable
     {
         return $this->validationDate;
@@ -1046,10 +1266,13 @@ class Client
     }
 
     /**
-     * @Groups({"penalty"})
+     * @Groups({"penalty", "payment", "contract"})
      */
     public function getLibelle(): string
     {
+        if ($this->companyName) {
+            return $this->companyName;
+        }
         return trim(($this->civilite ?? '') . ' ' . ($this->firstName ?? '') . ' ' . ($this->lastName ?? ''));
     }
 }

@@ -141,20 +141,65 @@ class SubscriptionController extends AbstractController
         }
 
         try {
-            // Pour l'instant, on change juste le statut. 
-            // La suite (création compte client, etc.) pourra être ajoutée ici.
+            $entityManager = $this->getDoctrine()->getManager();
+
+            // 1. Mark subscription as validated
             $subscription->setStatus('VALIDÉ');
 
-            $entityManager = $this->getDoctrine()->getManager();
+            // 2. Create a new Client from Subscription data
+            $client = new \App\Entity\Client\Client();
+
+            $client->setType($subscription->getClientType());
+            $client->setProfession($subscription->getProfession());
+
+            // Identify whether Particulier or Entreprise to spread names correctly
+            if ($subscription->getClientType() === 'Particulier') {
+                $client->setName($subscription->getFullName());
+                $nameParts = explode(' ', $subscription->getFullName() ?? '', 2);
+                $client->setFirstName($nameParts[0] ?? '');
+                $client->setLastName($nameParts[1] ?? '');
+            }
+            else {
+                $client->setManagerName($subscription->getFullName());
+                $client->setCompanyName($subscription->getCompanyName());
+                $client->setTaxAccountNb($subscription->getTaxAccountNb());
+                $client->setName($subscription->getCompanyName());
+            }
+
+            $client->setEmail($subscription->getEmail());
+            $client->setPhone($subscription->getPhone());
+            $client->setAddress($subscription->getLocation());
+
+            // Documents transfer
+            $client->setIdScanUrl($subscription->getCni());
+            $client->setLicenseScanUrl($subscription->getPermis());
+            $client->setPhoto($subscription->getPhotos());
+
+            $client->setCasierUrl($subscription->getCasier());
+            $client->setCertifResidenceUrl($subscription->getCertif());
+            $client->setBulletinSalaireUrl($subscription->getBulletin());
+
+            // Enterprise Documents transfer
+            $client->setRcUrl($subscription->getRc());
+            $client->setDfeUrl($subscription->getDfe());
+            $client->setStatutUrl($subscription->getStatut());
+            $client->setCniGerantUrl($subscription->getCniGerant());
+            $client->setCasierGerantUrl($subscription->getCasierGerant());
+            $client->setReleveBancaireUrl($subscription->getReleve());
+
+            // Finalize client
+            $client->setStatus('En attente de Validation');
+
+            $entityManager->persist($client);
             $entityManager->flush();
 
             $this->auditLogManager->log(
                 'Souscription',
                 'Validation',
-                sprintf('Validation de la souscription de : %s', $subscription->getFullName())
+                sprintf('Validation de la souscription de : %s. Client créé avec succès.', $subscription->getFullName())
             );
 
-            return $this->json(['message' => 'Souscription validée avec succès.'], 200);
+            return $this->json(['message' => 'Souscription validée et client créé avec succès.'], 200);
         }
         catch (\Exception $e) {
             return $this->json(['message' => 'Erreur lors de la validation.', 'details' => $e->getMessage()], 500);

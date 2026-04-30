@@ -44,3 +44,6 @@ services:
     App\EventListener\EventListener:
         tags:
             - {name: "Kernel.event_listener", event: "security.authentication.success"}
+
+    # Firebase Autowiring
+    Kreait\Firebase\Contract\Messaging: '@kreait_firebase.default.messaging'
